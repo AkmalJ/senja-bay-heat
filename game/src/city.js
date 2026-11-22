@@ -49,6 +49,7 @@ function windowTexture(base, litRatio, rnd) {
   return t;
 }
 
+// Sky dome: its material colour is tinted every frame by the day cycle in main.js.
 export function buildSky(scene, rnd) {
   // A gradient dome, a low sun disc and flat-shaded cloud clusters — the
   // tropical sky the top of the frame is judged on.

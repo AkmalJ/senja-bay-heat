@@ -94,7 +94,7 @@ function spawnCar(modelIdx, x, z, heading, kind, opts = {}) {
 const parkedSpots = [[268, -95, 2, Math.PI / 2], [120, 12, 0, 0], [-40, -190, 1, 0], [200, 100, 3, Math.PI / 2], [-230, -60, 4, 0], [60, 230, 5, Math.PI / 2], [-120, 40, 0, 0], [310, 120, 1, Math.PI / 2], [-280, 200, 2, 0], [30, -280, 3, 0]];
 for (const [x, z, m, h] of parkedSpots) spawnCar(m, x, z, h, "parked", m === 2 ? { color: 0xf06423 } : {});
 // Rolling traffic.
-for (let i = 0; i < 16; i++) {
+for (let i = 0; i < 18; i++) {
   const lines = roadLines();
   const alongX = Math.random() < 0.5;
   const line = lines[(Math.random() * lines.length) | 0];
