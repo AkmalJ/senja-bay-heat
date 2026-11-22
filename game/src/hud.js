@@ -68,6 +68,12 @@ export class HUD {
     $("respectText").textContent = next ? `${s.respect} / ${next.at} RP` : `${s.respect} RP — MAX`;
     $("respectBar").style.width = (next ? ((s.respect - rank.at) / (next.at - rank.at)) * 100 : 100) + "%";
 
+    // Side hustles: the live race line and the package count.
+    if (s.activity) {
+      $("activityRace").textContent = s.activity.line1;
+      $("activityPack").textContent = s.activity.line2;
+    }
+
     // Mission panel.
     if (s.mission) {
       const m = s.mission;

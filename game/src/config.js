@@ -145,4 +145,39 @@ export const RANKS = [
   { at: 4200, name: "BAY LEGEND" },
 ];
 
+// Street races: drive into a green gate to start, then chase the gold
+// checkpoint pillars in order. The last pillar is the finish line.
+export const RACES = [
+  {
+    name: "STRAND SPRINT", start: { x: 285, z: 190 }, par: 50, reward: 1500, respect: 60,
+    checkpoints: [
+      { x: 285, z: 95 }, { x: 285, z: 0 }, { x: 285, z: -95 },
+      { x: 285, z: -190 }, { x: 190, z: -190 }, { x: 95, z: -190 },
+    ],
+  },
+  {
+    name: "DOWNTOWN LOOP", start: { x: 95, z: 95 }, par: 50, reward: 1800, respect: 80,
+    checkpoints: [
+      { x: 95, z: 0 }, { x: 95, z: -95 }, { x: 0, z: -95 },
+      { x: -95, z: -95 }, { x: -95, z: 0 }, { x: -95, z: 95 },
+    ],
+  },
+  {
+    name: "PORT RUN", start: { x: 190, z: 285 }, par: 50, reward: 2200, respect: 100,
+    checkpoints: [
+      { x: 285, z: 285 }, { x: 285, z: 190 }, { x: 190, z: 190 },
+      { x: 95, z: 190 }, { x: 95, z: 285 }, { x: 190, z: 285 },
+    ],
+  },
+];
+
+// Hidden packages: glowing crates tucked around the bay — the beach, the
+// pier, the market aisles, the port gate, the hills lookout and more.
+export const PACKAGE_SPOTS = [
+  [330, -150], [432, 40], [-248, 109], [-160, 200], [185, 172], [250, -40],
+  [47, 47], [-250, -272], [310, 120], [-285, -95], [95, -285], [-190, -200],
+];
+export const PACKAGE_REWARD = 350;
+export const PACKAGE_BONUS = 2500;
+
 export const SAVE_KEY = "senja-bay-heat-save-v1";

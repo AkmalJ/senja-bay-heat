@@ -24,6 +24,7 @@ export function stageScene(name, api) {
       api.addPed(297, 6, {});
       api.addPed(298, 52, {});
       api.addPed(273, 66, {});
+      api.setPackagesFound(5);
       api.setRadio(0);
       api.dialogue("Sinta", "DRIVER — CREW", "Every cruiser in the bay and Air One want that orange Pelo. Forty seconds on the Strand, then you vanish.");
       break;
@@ -45,6 +46,14 @@ export function stageScene(name, api) {
       // Shoppers threading the aisle between the lit stalls.
       api.addPed(-252, 138, {});
       api.addPed(-243, 137, {});
+      api.addPed(-253, 143, {});
+      api.addPed(-240, 146, {});
+      // A shopper's scooter parked in the near foreground of the aisle,
+      // and one of the bay's hidden packages glowing further down it
+      // (only the beach and pier packages are marked found, so this
+      // one stays lit in the frame).
+      api.parkCar("Senja Scooter", -242, 140, 2.9);
+      api.setPackagesFound(2);
       api.parkCar("Bemo Pickup", -156, 143, 1.35);
       api.selectWeapon("smg");
       api.setWanted(2, true);
@@ -53,16 +62,24 @@ export function stageScene(name, api) {
       break;
     }
     case "port": {
-      // Dusk port run: chasing the Regent target car past the cranes.
+      // Dusk port run: the coupe sits deep in the apron on the port
+      // road, container rows flanking both sides, a crane ahead-left,
+      // chasing the Regent target car past the gates.
       api.setClock(18.75);
       api.setStats({ money: 18450, respect: 2210, health: 76, armor: 58 });
       api.startJobAt(7, 1);                    // SENJA HEAT, wreck-the-Regent stage
-      api.placeInCar("Senja Coupe", 190, 150, 0.4, 34);
+      api.placeInCar("Senja Coupe", 190, 150, 0.4, 16); // rolling onto the apron toward the cranes
       api.setCamOffset(0.38);
       api.setWanted(3, true);
       api.spawnChasePack(3, 20);
-      // Dock dressing: a work van and a hatchback among the containers,
-      // dockers on foot between the rows.
+      // A live street race on the HUD: the Port Run course is armed,
+      // its first gold pillar standing down the apron road.
+      api.startRace(2);
+      api.setPackagesFound(4);
+      // Dock dressing: the Kargo box truck parked among the containers
+      // ahead-right, a work van and a hatchback on the apron, dockers
+      // on foot between the rows.
+      api.parkCar("Kargo Box Truck", 218, 190, -0.6);
       api.parkCar("Angkot Van", 168, 178, -0.5);
       api.parkCar("Kijang Sprint", 232, 168, 1.2);
       api.addPed(202, 198, { cap: 0xf5c518 });
@@ -74,12 +91,14 @@ export function stageScene(name, api) {
     case "hills": {
       // On foot on the Bukit Kapur road at dusk, ledger job, looking back
       // across the whole lit bay toward the gold objective marker.
-      api.setClock(18.6);
+      api.setClock(18.85);
       api.setStats({ money: 11980, respect: 1340, health: 88, armor: 40 });
       api.startJobAt(4, 0);
       api.placeOnFoot(-250, -272, 0.88);
       api.parkCar("Senja Coupe", -246, -266, 0.8);
       api.parkCar("Taksi Senja", -234, -254, 0.9);
+      api.parkCar("Senja Scooter", -254, -264, 1.2);
+      api.setPackagesFound(8);
       api.addPed(-244, -268, {});
       api.addPed(-240, -262, { hat: 0xe9c46a });
       api.addPed(-237, -273, {});

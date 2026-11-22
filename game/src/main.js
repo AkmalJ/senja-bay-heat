@@ -11,6 +11,7 @@ import { buildCarMesh, buildPersonMesh, animatePerson, buildHelicopterMesh, buil
 import { HUD } from "./hud.js";
 import { GameAudio } from "./audio.js";
 import { MissionRunner } from "./missions.js";
+import { Activities } from "./activities.js";
 import { Effects } from "./effects.js";
 import { stageScene } from "./shots.js";
 
@@ -239,6 +240,15 @@ const hooks = {
   },
 };
 const missions = new MissionRunner(hooks);
+
+// ---------- side hustles: street races + hidden packages ----------
+const activities = new Activities(scene, {
+  toast: (t, s) => hud.toast(t, s),
+  banner: (t, s) => hud.banner(t, s),
+  pickup: () => audio.pickup(),
+  cash: () => audio.cash(),
+  reward(m, r) { S.money += m; S.respect += r; saveGame(); },
+});
 
 // ---------- input ----------
 const keys = {};
@@ -766,6 +776,7 @@ function hudState() {
   const tp = missions.targetPoint();
   return {
     clock: S.clock, money: S.money, respect: S.respect, wanted: S.wanted, searching: S.searching,
+    activity: activities.hudState(),
     heliActive, roadblockAhead: policeCars.some((c) => c.tactic === "ROADBLOCK"),
     mission: mState, dispatch, weapons,
     crew: CREW.map((c, i) => ({ keyLabel: c.key.replace("Key", ""), ability: c.ability, name: c.name, role: c.role, ready: S.crewCd[i] <= 0, left: Math.max(0, S.crewCd[i]), cooldown: c.cooldown })),
@@ -788,6 +799,7 @@ function saveGame() {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       money: S.money, respect: S.respect, missionIndex: S.missionIndex,
       ammo: S.ammo, unlocked: S.unlocked,
+      act: activities.saveData(),
     }));
   } catch (e) { /* private mode: the bay forgets, the game goes on */ }
 }
@@ -804,7 +816,7 @@ function startGame(fromSave) {
   audio.unlock();
   if (fromSave) {
     const s = loadGame();
-    if (s) { S.money = s.money; S.respect = s.respect; S.missionIndex = s.missionIndex || 0; S.ammo = s.ammo; S.unlocked = s.unlocked; }
+    if (s) { S.money = s.money; S.respect = s.respect; S.missionIndex = s.missionIndex || 0; S.ammo = s.ammo; S.unlocked = s.unlocked; activities.restore(s.act); }
   }
   document.getElementById("startScreen").style.display = "none";
   document.getElementById("hud").style.display = "block";
@@ -877,6 +889,8 @@ const api = {
     }
   },
   setCamOffset(v) { S.camOffset = v; },
+  setPackagesFound(n) { activities.setFound(n); },
+  startRace(i) { activities.beginRace(i, true); },
   parkCar(modelName, x, z, heading) {
     const idx = Math.max(0, CAR_MODELS.findIndex((m) => m.name === modelName));
     return spawnCar(idx, x, z, heading, "parked", {});
@@ -903,7 +917,7 @@ if (STAGE) {
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
-  let dt = Math.min(0.05, (now - last) / 1000);
+  let dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   if (S.mode === "play" && !S.paused) {
     S.clock = (S.clock + dt * 24 / WORLD.dayLength) % 24;
@@ -935,6 +949,7 @@ function frame(now) {
       x: focusPos().x, z: focusPos().z, inCar: !!S.inCar, wanted: S.wanted,
       targetWrecked: targetCar ? targetCar.wrecked : false,
     });
+    activities.update(dt, { x: focusPos().x, z: focusPos().z, inCar: !!S.inCar });
     // Slow health regen when calm and unmolested.
     if (S.wanted === 0 && S.health > 0 && S.health < 100) S.health = Math.min(100, S.health + dt * 1.2);
     // Tracers & particles & flash decay.
