@@ -30,46 +30,86 @@ export function stageScene(name, api) {
       break;
     }
     case "market": {
-      // On-foot combat INSIDE the night market: Raka stands in the aisle
-      // between the z=126 stall row (fronts + signs facing him) and the
-      // z=160 row (backs + awnings receding on the right), looking east
-      // down the aisle into the Kerang Boys the clear stage spawns. The
-      // aisle floor is dressed now — runner mats underfoot, goods piled
-      // at both stall fronts, string lights sagging overhead — and Raka
-      // stands closer to the lit row so the stalls loom over the frame.
-      // FIREFIGHT STAGING: the four Kerang Boys below stand ON Raka's
-      // firing line (placeOnFoot heading 2.65, so his SMG ray runs
-      // (+0.472, -0.881) from (-246, 141.5)) at 4.2 m, 6.2 m, 8.2 m and
-      // 10.5 m, the middle two offset half a metre to alternating sides
-      // so their bodies stagger across the aisle instead of stacking
-      // behind Raka's silhouette. The capture tool holds the trigger:
-      // the first three go down on the mats, the fourth is still
-      // standing in the line of fire with hit sparks on him and the
-      // muzzle flash lit at Raka's hands, while a fifth Kerang Boy off
-      // the line returns fire. Nothing is faked — it is the game's
-      // real shoot() resolved frame by frame.
-      api.setClock(19.3);
-      api.setStats({ money: 7270, respect: 940, health: 95, armor: 27 });
+      // On-foot combat INSIDE the night market, staged for READABILITY:
+      // full night (21.6) so the muzzle light, tracers and hit sparks
+      // carry against the dark, and the whole fight pulled in tight
+      // around Raka in the z=143 aisle, the lit z=126 stall fronts
+      // as the backdrop. Raka fills the lower-centre foreground
+      // from the game's own follow camera.
+      // FIREFIGHT GEOMETRY (placeOnFoot heading 3π/4, so the SMG
+      // ray runs (+0.707, -0.707) out of (-238, 141.5); screen-
+      // right along the ray is (+0.707, +0.707)). Every placement
+      // below is dictated by how the dead actually fall in this
+      // game — measured, not guessed: a dropped man tips forward
+      // around his feet and comes to rest lying along world +Z
+      // from where he stood (bounding box ~2.0 m in Z, ~1.1 m in
+      // X, top edge ~0.75 m up, whatever he was facing). Two
+      // consequences. First, the fight runs NE at 45°, never due
+      // north: pointing at the camera, a corpse foreshortens
+      // into a blob behind Raka's legs; across the view, the
+      // same corpse stretches over the mats where a body reads
+      // as a body. (The stall signs, which face +Z, still read
+      // at 45° — the ES KELAPA stall stands on the ray itself.)
+      // Second, the first kill stands FAR down the ray: his
+      // corpse reaches ~1.4 m back toward Raka and ~1.4 m to
+      // screen-right of where he stood, so a man dropped at
+      // spitting distance ends up sprawled across Raka's gun
+      // arm, masquerading as part of it. Dropped at 5 m, the
+      // body lands clear of the silhouette, in the open.
+      //   A (-234.0, 138.4) — 5.0 m down the ray, 0.6 m screen-
+      //     right of it: the first kill. His corpse comes to rest
+      //     at (t≈3.6–5.0, s≈0.6–2.0), fully clear of Raka's
+      //     outline, muzzle light raking it every time the gun
+      //     fires past him — and it lands on the TEAL runner
+      //     (x −241.8…−229.2), not the burgundy one the fight
+      //     used to sit on: a dark purple body on dark red
+      //     pattern is camouflage, on teal it stands out. The
+      //     whole fight shifted one mat east for that contrast;
+      //     the backdrop sign on the ray is now ES KELAPA.
+      //   B (-232.3, 136.5) — 7.6 m down the ray, 0.5 m screen-
+      //     right: the second kill, and the live target while A
+      //     is going down, his burst stacking over A's body. The
+      //     offset matters for the living too — dead-centre on
+      //     the ray he hides behind Raka's silhouette and only
+      //     his head peeks over it, sparks and all; half a metre
+      //     to the side, his shoulder, gun arm and the burst on
+      //     his chest clear Raka's outline. His corpse reaches
+      //     back onto the same teal runner.
+      //   C (-230.8, 133.9) — 10.5 m down the ray, a step
+      //     screen-left: the next man in line, depth behind B,
+      //     already returning fire — once B drops, the fire
+      //     walks on to him.
+      //   D (-234.4, 133.1) — off the line by the stall fronts,
+      //     screen-left: trades shots with Raka the whole time
+      //     (his hits land as red bursts on Raka — the game's real
+      //     hostile fire, nothing posed).
+      // The capture tool holds the trigger on the real shoot() and
+      // picks from the frames where tracers, spark bursts and the
+      // downed men share the frame. Clock 21.6, not 20.2: at 20.2
+      // the dusk band still floats the whole scene up into evening
+      // blue and the firelight drowns in it — 21.6 is past the band,
+      // true night, when the market's own signs and string lights
+      // (all unlit materials) take over the frame and every tracer
+      // and spark stands out against the dark.
+      api.setClock(21.6);
+      api.setStats({ money: 7270, respect: 940, health: 100, armor: 80 });
       api.startJobAt(1, 1);                    // clear-the-aisles stage (spawns hostiles)
-      api.placeOnFoot(-246, 141.5, 2.65);      // in the aisle, facing NE into the stall row
+      api.placeOnFoot(-238, 141.5, Math.PI * 0.75); // on the teal runner, facing NE across the aisle
       api.setCamOffset(0);
-      // Kerang Boys on the firing line, in SMG range of Raka.
-      api.addPed(-244, 137.8, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-243.5, 135.8, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-241.7, 134.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-241, 132.2, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      // A fourth Kerang Boy off the line, trading shots with Raka.
-      api.addPed(-234.5, 138.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      // Shoppers threading the aisle between the lit stalls.
-      api.addPed(-252, 137.5, {});
-      api.addPed(-243.5, 145, {});
-      api.addPed(-256.5, 144, {});
-      api.addPed(-236, 146.5, {});
-      // A shopper's scooter parked in the near foreground of the aisle,
-      // and one of the bay's hidden packages glowing further down it
-      // (only the beach and pier packages are marked found, so this
-      // one stays lit in the frame).
-      api.parkCar("Senja Scooter", -253, 149, 2.6);
+      // Kerang Boys on and around the firing line, in SMG range.
+      api.addPed(-234.0, 138.4, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-232.3, 136.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-230.8, 133.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-234.4, 133.1, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // Shoppers kept south and west of the fight, out of the line.
+      api.addPed(-244, 138, {});
+      api.addPed(-233, 149, {});
+      api.addPed(-227, 149.5, {});
+      // A shopper's scooter parked at the aisle's edge east of the
+      // fight, and one of the bay's hidden packages glowing further
+      // down it (only the beach and pier packages are marked found,
+      // so this one stays lit in the frame).
+      api.parkCar("Senja Scooter", -232, 147.5, 2.2);
       api.setPackagesFound(2);
       api.parkCar("Bemo Pickup", -202, 144, 1.35);
       api.selectWeapon("smg");
