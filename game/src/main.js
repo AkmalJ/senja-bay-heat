@@ -501,12 +501,17 @@ function shoot(dt) {
   if (w.id !== "fists") fireBeam(muzzle, end, false);
   if (hit) {
     // The impact carries the tracer's read (v5): a fat warm spark
-    // burst, a tight glow, and a puff of dust-smoke kicked off the
+    // burst, a tight glow, and a wisp of dust-smoke kicked off the
     // target — the beam itself is only on screen for a few frames.
-    burst(end, 0xffc46b, 10, 2.6, 2.0, 1.35, 0.38);
+    burst(end, 0xffc46b, 12, 1.9, 2.0, 1.45, 0.38);
     if (hit.health !== undefined && hit.kind === undefined) { // a person
-      fireOrb(end, 0.5, 0xffe9c4);
-      fx.spawn(end.x, end.y, end.z, { n: 3, color: 0xa79e92, opacity: 0.38, size: 1.15, spread: 1.1, up: 1.5, life: 0.55, grow: 2.6, drag: 1.7 });
+      fireOrb(end, 0.42, 0xffe9c4);
+      // The smoke stays a small accent (v5.1): the first tuning
+      // grew three metre-wide grey boxes off a man's chest and the
+      // puff swallowed him whole — a hit should read as sparks ON
+      // the man, not an explosion AROUND him. Two small, short,
+      // slow-growing wisps; the sparks above do the talking.
+      fx.spawn(end.x, end.y, end.z, { n: 2, color: 0xa79e92, opacity: 0.3, size: 0.55, spread: 0.7, up: 1.0, life: 0.32, grow: 1.2, drag: 1.7 });
       hit.health -= w.damage; audio.hit();
       if (hit.health <= 0 && !hit.dead) {
         hit.dead = true; settleCorpse(hit.mesh);
@@ -1120,28 +1125,30 @@ const api = {
 // burst particles, dust puffs and the muzzle light (the world keeps
 // moving — only the effects hang). Turning the freeze on also
 // revives the freshest beam and orbs if they expired inside the
-// last 900 ms of real time: at screenshot render rates a grab can
-// lag the shot by more than the tracer's whole 0.09 s life, and
-// what is revived is the game's own mesh, in the place the game's
-// own shot put it, at the brightness the game gave it — the same
-// fired moment, held, not a redrawn one. This is reachable ONLY
-// through window.__senjaDebug below, which exists only under
-// ?stage= — normal play has no path to it.
+// last 10 s of real time: at screenshot render rates a single
+// frame can take seconds of wall time, so the observer that
+// calls the freeze can lag the shot by several whole frames —
+// the window has to span that lag or the revival never lands.
+// What is revived is the game's own mesh, in the place the
+// game's own shot put it, at the brightness the game gave it —
+// the same fired moment, held, not a redrawn one. This is
+// reachable ONLY through window.__senjaDebug below, which
+// exists only under ?stage= — normal play has no path to it.
 function setFxFreeze(on) {
   if (on) {
     const now = performance.now();
     for (const slot of beams) {
-      if (slot.life <= 0 && slot.firedAt && now - slot.firedAt < 900) {
+      if (slot.life <= 0 && slot.firedAt && now - slot.firedAt < 10000) {
         slot.life = slot.maxLife;
         slot.core.mesh.visible = true; slot.halo.mesh.visible = true;
       }
     }
     for (const o of orbs) {
-      if (o.life <= 0 && o.firedAt && now - o.firedAt < 900) {
+      if (o.life <= 0 && o.firedAt && now - o.firedAt < 10000) {
         o.life = o.maxLife; o.spr.visible = true;
       }
     }
-    if (lastShotAt && now - lastShotAt < 900) flash.intensity = 26;
+    if (lastShotAt && now - lastShotAt < 10000) flash.intensity = 26;
   }
   fxFrozen = !!on;
 }
