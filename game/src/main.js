@@ -77,8 +77,11 @@ const S = {
 // without it his shots came out of a bare shoulder and no frame
 // could ever show a weapon in his hands. Its visibility follows the
 // selected weapon (see updatePlayer): up for a firearm, gone for
-// fists. The barrel tip is where shoot() now starts its beams.
-const playerMesh = buildPersonMesh({ shirt: 0xd8493b, pants: 0x22304a, cap: 0x14202e, gun: true });
+// fists. The barrel tip is where shoot() now starts its beams. He
+// never wears the crowd's random shoulder bag: its pale strap lay
+// diagonally across his back in the staged frames and read as
+// anything but a gunman, so his build opts out of it for good.
+const playerMesh = buildPersonMesh({ shirt: 0xd8493b, pants: 0x22304a, cap: 0x14202e, gun: true, bag: false });
 playerMesh.position.set(262, 0, -60);
 scene.add(playerMesh);
 const player = { mesh: playerMesh, heading: 2.6, phase: 0, pos: playerMesh.position };
@@ -359,6 +362,14 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0);
 // loop never allocates for gunfire.
 const beams = [];
 let beamCursor = 0, lastBeamEnd = null;
+// Screenshot staging can freeze the gunfire effects at their peak
+// (see setFxFreeze near the staged-scene block): the tracer lives
+// 0.09 s, far shorter than a screenshot grab takes, so without a
+// hold no still could ever show the beam the game really fired.
+// The flag is only settable through the STAGE-only debug handle —
+// in normal play it stays false and every effect ages exactly as
+// it always has.
+let fxFrozen = false, lastShotAt = 0;
 const beamGeo = new THREE.BoxGeometry(1, 1, 1);
 function beamPart(width, color, opacity) {
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
@@ -383,6 +394,7 @@ function fireBeam(a, b, hostile) {
     part.mesh.visible = true;
   }
   slot.life = slot.maxLife = hostile ? 0.07 : 0.09;
+  slot.firedAt = performance.now();
   lastBeamEnd = b.clone();
 }
 // The muzzle orb: a radial-gradient sprite, additive — the glowing
@@ -416,6 +428,7 @@ function fireOrb(pos, scale, tint) {
   o.mat.opacity = 0.95;
   o.spr.visible = true;
   o.life = o.maxLife = 0.085;
+  o.firedAt = performance.now();
 }
 // A dropped man settles flat on his back, face up, gun hand empty.
 // Tipped forward around his feet he used to come to rest half-rolled
@@ -438,6 +451,13 @@ function burst(pos, color, n, spread, up, size = 1, life = 0.45) {
   }
 }
 function shoot(dt) {
+  // Under the staging freeze the held moment does not fire again:
+  // the capture tool keeps the trigger held (and Raka's gun arm
+  // raised) while it swings the camera around the frozen shot, and
+  // fresh rounds would fan new beams across the held frame. The
+  // flag is STAGE-only (see setFxFreeze) — normal play never sets
+  // it, so this line never turns a real shot away.
+  if (fxFrozen) return;
   fireTimer -= dt;
   const w = WEAPONS[S.weaponIdx];
   if (!mouseDown || fireTimer > 0 || S.inCar) return;
@@ -459,6 +479,7 @@ function shoot(dt) {
   const muzzle = new THREE.Vector3(-0.42, 1.32, 0.58).applyAxisAngle(Y_AXIS, player.heading).add(player.pos);
   if (w.id !== "fists") {
     flash.position.copy(muzzle); flash.intensity = 26;
+    lastShotAt = performance.now();
     fireOrb(flash.position, 0.72, 0xffffff);
   }
   // Nearest hittable along the ray: hostiles, police on foot, any car.
@@ -1094,6 +1115,36 @@ const api = {
   },
   deployHelicopter() { heliActive = true; heli.visible = true; },
 };
+// Hold the gunfire effects at their peak for a screenshot grab.
+// The frame loop reads fxFrozen and stops ageing the beams, orbs,
+// burst particles, dust puffs and the muzzle light (the world keeps
+// moving — only the effects hang). Turning the freeze on also
+// revives the freshest beam and orbs if they expired inside the
+// last 900 ms of real time: at screenshot render rates a grab can
+// lag the shot by more than the tracer's whole 0.09 s life, and
+// what is revived is the game's own mesh, in the place the game's
+// own shot put it, at the brightness the game gave it — the same
+// fired moment, held, not a redrawn one. This is reachable ONLY
+// through window.__senjaDebug below, which exists only under
+// ?stage= — normal play has no path to it.
+function setFxFreeze(on) {
+  if (on) {
+    const now = performance.now();
+    for (const slot of beams) {
+      if (slot.life <= 0 && slot.firedAt && now - slot.firedAt < 900) {
+        slot.life = slot.maxLife;
+        slot.core.mesh.visible = true; slot.halo.mesh.visible = true;
+      }
+    }
+    for (const o of orbs) {
+      if (o.life <= 0 && o.firedAt && now - o.firedAt < 900) {
+        o.life = o.maxLife; o.spr.visible = true;
+      }
+    }
+    if (lastShotAt && now - lastShotAt < 900) flash.intensity = 26;
+  }
+  fxFrozen = !!on;
+}
 if (STAGE) {
   document.getElementById("startScreen").style.display = "none";
   document.getElementById("hud").style.display = "block";
@@ -1101,7 +1152,7 @@ if (STAGE) {
   stageScene(STAGE, api);
   // Staging-only inspection handle for the screenshot tooling: lets the
   // capture scripts verify the posed state (never set in normal play).
-  window.__senjaDebug = { peds, cars, player, state: S, get camYaw() { return camYaw; }, get flashI() { return flash.intensity; }, get flashPos() { return { x: +flash.position.x.toFixed(2), z: +flash.position.z.toFixed(2) }; }, get tracerEnd() { return lastBeamEnd ? { x: +lastBeamEnd.x.toFixed(2), z: +lastBeamEnd.z.toFixed(2) } : null; } };
+  window.__senjaDebug = { peds, cars, player, state: S, setFxFreeze, get fxFrozen() { return fxFrozen; }, get camYaw() { return camYaw; }, get flashI() { return flash.intensity; }, get flashPos() { return { x: +flash.position.x.toFixed(2), z: +flash.position.z.toFixed(2) }; }, get tracerEnd() { return lastBeamEnd ? { x: +lastBeamEnd.x.toFixed(2), z: +lastBeamEnd.z.toFixed(2) } : null; } };
   // Let the posed scene settle, then tell the screenshot tool we are ready.
   setTimeout(() => { window.__senjaReady = true; }, 1400);
 }
@@ -1145,26 +1196,30 @@ function frame(now) {
     activities.update(dt, { x: focusPos().x, z: focusPos().z, inCar: !!S.inCar });
     // Slow health regen when calm and unmolested.
     if (S.wanted === 0 && S.health > 0 && S.health < 100) S.health = Math.min(100, S.health + dt * 1.2);
-    // Gunfire visuals & particles & flash decay.
-    flash.intensity = Math.max(0, flash.intensity - dt * 300);
+    // Gunfire visuals & particles & flash decay. Under the staging
+    // freeze (fxFrozen, STAGE-only) none of these age or move: the
+    // beam, orbs, burst sparks, dust and muzzle light hang at the
+    // peak of the moment the freeze caught, while the world itself
+    // — crowd, water, traffic — keeps living around them.
+    if (!fxFrozen) flash.intensity = Math.max(0, flash.intensity - dt * 300);
     for (const slot of beams) {
       if (slot.life <= 0) continue;
-      slot.life -= dt;
-      const k = Math.max(slot.life, 0) / slot.maxLife;
+      if (!fxFrozen) slot.life -= dt;
+      const k = fxFrozen ? 1 : Math.max(slot.life, 0) / slot.maxLife;
       slot.core.mat.opacity = slot.core.baseOpacity * k;
       slot.halo.mat.opacity = slot.halo.baseOpacity * k;
       if (slot.life <= 0) { slot.core.mesh.visible = false; slot.halo.mesh.visible = false; }
     }
     for (const o of orbs) {
       if (o.life <= 0) continue;
-      o.life -= dt;
-      const k = Math.max(o.life, 0) / o.maxLife;
+      if (!fxFrozen) o.life -= dt;
+      const k = fxFrozen ? 1 : Math.max(o.life, 0) / o.maxLife;
       o.mat.opacity = 0.95 * k;
       const s = o.baseScale * (0.7 + 0.3 * k);
       o.spr.scale.set(s, s, 1);
       if (o.life <= 0) o.spr.visible = false;
     }
-    for (let i = particles.length - 1; i >= 0; i--) {
+    if (!fxFrozen) for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i]; p.life -= dt;
       p.mesh.position.x += p.vx * dt; p.mesh.position.y += p.vy * dt; p.mesh.position.z += p.vz * dt;
       p.vy -= 4 * dt;
@@ -1197,7 +1252,7 @@ function frame(now) {
     }
     poolMat.opacity = darkness * 0.34;
     coneMat.opacity = darkness * 0.16;
-    fx.update(dt);
+    fx.update(fxFrozen ? 0 : dt);
     updateCarFires(dt, now);
     hud.update(dt, hudState());
     audio.music(dt, true);
