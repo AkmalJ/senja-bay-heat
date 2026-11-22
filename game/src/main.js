@@ -75,6 +75,20 @@ const player = { mesh: playerMesh, heading: 2.6, phase: 0, pos: playerMesh.posit
 
 // ---------- cars ----------
 const cars = [];
+// Headlight glow pools: one shared translucent disc, faded up by the day
+// cycle as the light drops. Every police car carries one, and so does
+// whichever car the player is driving.
+const poolMat = new THREE.MeshBasicMaterial({ color: 0xffedb5, transparent: true, opacity: 0, depthWrite: false });
+const poolGeo = new THREE.CircleGeometry(3.4, 18);
+function addHeadlightPool(car) {
+  if (car.pool) return;
+  const p = new THREE.Mesh(poolGeo, poolMat);
+  p.rotation.x = -Math.PI / 2;
+  p.position.set((car.mesh.userData.length || 4.6) / 2 + 2.8, 0.07, 0);
+  p.scale.set(1.6, 1, 1);
+  car.mesh.add(p);
+  car.pool = p;
+}
 function spawnCar(modelIdx, x, z, heading, kind, opts = {}) {
   const model = CAR_MODELS[modelIdx % CAR_MODELS.length];
   const mesh = buildCarMesh(model, { police: kind === "police", taxi: model.name.includes("Taksi"), color: opts.color });
@@ -87,6 +101,7 @@ function spawnCar(modelIdx, x, z, heading, kind, opts = {}) {
     pos: mesh.position, shooterCd: 0,
   };
   if (kind === "traffic") { car.dir = Math.cos(heading) + Math.sin(heading) > 0 ? 1 : -1; car.speed = 9 + Math.random() * 5; }
+  if (kind === "police") addHeadlightPool(car);
   cars.push(car);
   return car;
 }
@@ -114,7 +129,7 @@ function spawnPed(x, z, opts = {}) {
   peds.push(ped);
   return ped;
 }
-for (let i = 0; i < 34; i++) {
+for (let i = 0; i < 90 && peds.length < 44; i++) {
   const x = (Math.random() - 0.5) * 620, z = (Math.random() - 0.5) * 620;
   if (isOnRoad(x, z)) continue;
   spawnPed(x, z);
@@ -255,6 +270,7 @@ function tryEnterExitCar() {
   }
   if (best.kind === "parked" && best.model.name === "Pelo GT" && missions.index === 0 && missions.stage === 0) commitCrime(2);
   best.kind = "player";
+  addHeadlightPool(best);
   S.inCar = best;
   playerMesh.visible = false;
   audio.unlock();
@@ -633,12 +649,14 @@ function updateCamera(dt) {
   sun.position.set(fp.x + 90, 130, fp.z + 50);
   sun.target.position.set(fp.x, 0, fp.z);
 }
+let darkness = 0;   // 0 at noon, 1 at deep night; updateSky owns it
 function updateSky() {
   const h = S.clock;
   // Sunrise 06:30, sunset 19:30; a long golden dusk band centred on 19:00.
   const day = clamp(Math.sin(((h - 6.5) / 13) * Math.PI), 0, 1);
   const dusk = clamp(1 - Math.abs(h - 19.0) / 2.1, 0, 1);
   const lightLevel = clamp(day * 1.25 + dusk * 0.55, 0, 1);
+  darkness = 1 - lightLevel;
   const skyCol = new THREE.Color(0x1c2a4a).lerp(new THREE.Color(0x87b5d9), lightLevel).lerp(new THREE.Color(0xff9a5c), dusk * 0.4);
   scene.background.copy(skyCol);
   scene.fog.color.copy(skyCol).lerp(new THREE.Color(0xffffff), 0.25);
@@ -751,6 +769,7 @@ const api = {
     const idx = Math.max(0, CAR_MODELS.findIndex((m) => m.name === modelName));
     const car = spawnCar(idx, x, z, heading, "player", modelName === "Pelo GT" ? { color: 0xf06423 } : {});
     car.speed = speed;
+    addHeadlightPool(car);
     S.inCar = car; playerMesh.visible = false;
     player.pos.copy(car.pos); camYaw = heading + Math.PI; camPitch = 0.3;
     camera.position.set(x - Math.sin(heading) * 11, 4.5, z - Math.cos(heading) * 11);
@@ -853,7 +872,22 @@ function frame(now) {
       p.vy -= 4 * dt;
       if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
     }
-    if (city.sea) city.sea.position.y = 0.02 + Math.sin(now / 900) * 0.05;
+    // Animated water: a slow vertex swell rolls across the bay, the
+    // anchored boats ride it, and headlight pools fade up as it darkens.
+    if (city.sea) {
+      const pos = city.sea.geometry.attributes.position;
+      if (!city.sea.userData.base) city.sea.userData.base = Float32Array.from(pos.array);
+      const base = city.sea.userData.base, t = now / 1000;
+      for (let i = 0; i < pos.count; i++) {
+        pos.array[i * 3 + 2] = Math.sin(base[i * 3] * 0.055 + t * 1.25) * 0.3 + Math.cos(base[i * 3 + 1] * 0.045 + t * 0.85) * 0.26;
+      }
+      pos.needsUpdate = true;
+    }
+    if (city.boats) for (const b of city.boats) {
+      b.position.y = 0.1 + Math.sin(now / 820 + b.userData.phase) * 0.2;
+      b.rotation.z = Math.sin(now / 970 + b.userData.phase) * 0.03;
+    }
+    poolMat.opacity = darkness * 0.36;
     hud.update(dt, hudState());
     audio.music(dt, true);
     audio.setEngine(!!S.inCar, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0);

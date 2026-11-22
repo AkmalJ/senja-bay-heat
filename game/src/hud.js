@@ -12,6 +12,8 @@ export class HUD {
     this.dialogueTimer = 0;
     this.lastDispatchHtml = "";
     this.toastTimer = 0;
+    this.lastDistrict = "";
+    this.districtFade = 1;
   }
 
   show(id, on) { const el = $(id); if (el) el.style.display = on ? "" : "none"; }
@@ -116,6 +118,13 @@ export class HUD {
     $("districtSub").textContent = d.sub;
     $("turfLabel").textContent = d.turf;
     $("turfBar").style.width = s.turfValue + "%";
+    // District banner: on a district change the name block rises and
+    // fades in, the way location cards do in the games that inspired us.
+    const dEl = $("districtBox");
+    if (this.lastDistrict !== d.name) { this.lastDistrict = d.name; this.districtFade = 0; }
+    this.districtFade = Math.min(1, this.districtFade + dt / 0.45);
+    dEl.style.opacity = (0.3 + 0.7 * this.districtFade).toFixed(2);
+    dEl.style.transform = `translateY(${Math.round((1 - this.districtFade) * 10)}px)`;
 
     // Speed cluster.
     if (s.inCar) {
