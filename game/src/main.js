@@ -73,7 +73,12 @@ const S = {
 };
 
 // ---------- player ----------
-const playerMesh = buildPersonMesh({ shirt: 0xd8493b, pants: 0x22304a, cap: 0x14202e });
+// Raka carries the same gun box the armed peds and foot cops get —
+// without it his shots came out of a bare shoulder and no frame
+// could ever show a weapon in his hands. Its visibility follows the
+// selected weapon (see updatePlayer): up for a firearm, gone for
+// fists. The barrel tip is where shoot() now starts its beams.
+const playerMesh = buildPersonMesh({ shirt: 0xd8493b, pants: 0x22304a, cap: 0x14202e, gun: true });
 playerMesh.position.set(262, 0, -60);
 scene.add(playerMesh);
 const player = { mesh: playerMesh, heading: 2.6, phase: 0, pos: playerMesh.position };
@@ -278,7 +283,7 @@ addEventListener("mousemove", (e) => {
   if (!pointerLocked && S.mode === "play" && !e.buttons) return;
   if (pointerLocked || (e.buttons & 1 && STAGE)) {
     camYaw -= e.movementX * 0.0032;
-    camPitch = clamp(camPitch + e.movementY * 0.0024, 0.06, 1.05);
+    camPitch = clamp(camPitch + e.movementY * 0.0024, 0.02, 1.05);
   }
 });
 
@@ -440,8 +445,16 @@ function shoot(dt) {
   const dir = new THREE.Vector3(Math.sin(camYaw + Math.PI), 0, Math.cos(camYaw + Math.PI));
   dir.x += (Math.random() - 0.5) * w.spread * 2; dir.z += (Math.random() - 0.5) * w.spread * 2;
   dir.normalize();
+  // The muzzle is the gun's barrel tip, not a point floating ahead
+  // of the chest: the gun box sits at local (-0.42, 1.3, 0.3) in
+  // the person mesh and runs 0.55 long, so the tip is local
+  // z = 0.58 — rotated by Raka's heading into the world (the same
+  // transform the hostile fire below uses for its muzzles). The
+  // firing stance in updatePlayer keeps his heading on the aim
+  // while he shoots, so beam, orb and flash all leave the barrel.
+  const muzzle = new THREE.Vector3(-0.42, 1.32, 0.58).applyAxisAngle(Y_AXIS, player.heading).add(player.pos);
   if (w.id !== "fists") {
-    flash.position.copy(origin).addScaledVector(dir, 1.2); flash.intensity = 26;
+    flash.position.copy(muzzle); flash.intensity = 26;
     fireOrb(flash.position, 0.95, 0xffffff);
   }
   // Nearest hittable along the ray: hostiles, police on foot, any car.
@@ -460,10 +473,7 @@ function shoot(dt) {
   for (const c of cars) if (!c.wrecked) testPoint(c, 2.4);
   const end = origin.clone().addScaledVector(dir, bestT);
   end.setY(1.3);
-  if (w.id !== "fists") {
-    const muzzle = origin.clone().addScaledVector(dir, 1.2); muzzle.y = 1.45;
-    fireBeam(muzzle, end, false);
-  }
+  if (w.id !== "fists") fireBeam(muzzle, end, false);
   if (hit) {
     burst(end, 0xffd166, 8, 2.2, 1.6, 1.5, 0.32);
     if (hit.health !== undefined && hit.kind === undefined) { // a person
@@ -800,8 +810,25 @@ function updatePlayer(dt) {
     player.pos.x = nx; player.pos.z = nz;
     player.phase += dt * run * 1.6;
   }
+  // Firing stance: with a firearm up and the trigger held, Raka
+  // turns to face his aim — the camera's forward — so the gun in
+  // his hand tracks the shot instead of pointing wherever his
+  // walk last faced, and his gun arm comes up level down the aim
+  // with the support hand under it. The gun box itself stays
+  // where buildPersonMesh puts it; at arm's length forward the
+  // raised hand meets it. The turn is pointer-lock only: with the
+  // free camera the yaw already follows his heading, and if both
+  // chased each other the pair would slowly rotate as one.
+  const aiming = mouseDown && WEAPONS[S.weaponIdx].id !== "fists";
+  if (aiming && pointerLocked) player.heading = angleLerp(player.heading, camYaw + Math.PI, 0.55);
+  if (playerMesh.userData.gun) playerMesh.userData.gun.visible = WEAPONS[S.weaponIdx].id !== "fists";
   playerMesh.rotation.y = player.heading;
   animatePerson(playerMesh, player.phase, moving ? run : 0);
+  if (aiming) {
+    const limbs = playerMesh.userData.limbs;
+    limbs.armR.rotation.x = -1.5;
+    limbs.armL.rotation.x = -0.55;
+  }
   audio.setEngine(false, 0, 0);
 }
 
@@ -810,7 +837,14 @@ function updateCamera(dt) {
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;
   if (!pointerLocked) camYaw = angleLerp(camYaw, heading + Math.PI + S.camOffset, dt * (S.inCar ? 2.2 : 1.4));
-  const dist = S.inCar ? 9.6 : 5.8, height = S.inCar ? 3.3 : 2.5;
+  // On foot the follow sits low and close — 4.2 m back, 1.8 m up —
+  // so Raka fills the lower frame at shoulder height, the way the
+  // reference games shoot their street scenes. The old 5.8 m /
+  // 2.5 m floated high and far and shrank everything he did. With
+  // the pitch floor at 0.02 the camera's lowest point is ~1.85 m,
+  // still clear of the ground plane. The driving camera is
+  // untouched.
+  const dist = S.inCar ? 9.6 : 4.2, height = S.inCar ? 3.3 : 1.8;
   const back = { x: Math.sin(camYaw) * Math.cos(camPitch), z: Math.cos(camYaw) * Math.cos(camPitch) };
   const tx = fp.x + back.x * dist, tz = fp.z + back.z * dist;
   camera.position.lerp(new THREE.Vector3(tx, fp.y + height + Math.sin(camPitch) * dist * 0.55, tz), 1 - Math.pow(0.0001, dt));
