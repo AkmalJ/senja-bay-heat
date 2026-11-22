@@ -80,6 +80,26 @@ function stripeTexture(a, b) {
   return t;
 }
 
+function matTexture(base, accent) {
+  // A woven market mat: coloured field, border bands and a diamond
+  // lattice, so a flat rug reads as patterned cloth from the air.
+  const c = document.createElement("canvas"); c.width = 128; c.height = 128;
+  const g = c.getContext("2d");
+  g.fillStyle = base; g.fillRect(0, 0, 128, 128);
+  g.strokeStyle = accent; g.lineWidth = 7; g.strokeRect(7, 7, 114, 114);
+  g.lineWidth = 2; g.strokeRect(19, 19, 90, 90);
+  g.fillStyle = accent;
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+    const cx = 27 + x * 25, cy = 27 + y * 25;
+    g.beginPath();
+    g.moveTo(cx, cy - 7); g.lineTo(cx + 7, cy); g.lineTo(cx, cy + 7); g.lineTo(cx - 7, cy);
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 // Sky dome: its material colour is tinted every frame by the day cycle in main.js.
 export function buildSky(scene, rnd) {
   // A gradient dome, a low sun disc and flat-shaded cloud clusters — the
@@ -425,6 +445,131 @@ export class City {
       this.scene.add(pl);
       this.nightLights.push(pl);
     }
+    this.buildMarketDressing();
+  }
+
+  buildMarketDressing() {
+    // Ground dressing for Pasar Malam: patterned mats under the stall
+    // rows and down the aisles, goods piled at the stall fronts, low
+    // string lights sagging over the main aisle and standing boards at
+    // its entrances. Everything sits at the aisle edges — the walkways
+    // stay clear — and nothing here adds a collider, the same rule as
+    // the port's scattered barrels and crates. A private seed keeps the
+    // shared rnd sequence (and every other district) untouched.
+    const rnd = mulberry(20261118);
+    // -- mats: two-tone patterned rugs in batik colours --
+    const matCols = [["#8e2f32", "#e9c46a"], ["#1f6f6b", "#f4a261"], ["#c9962e", "#6e1423"],
+      ["#35477d", "#e9c46a"], ["#6e2434", "#2a9d8f"]];
+    const matMats = matCols.map(([a, b]) => new THREE.MeshLambertMaterial({ map: matTexture(a, b) }));
+    const mat = (x, z, w, d, ci) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.07, d), matMats[ci % matMats.length]);
+      m.position.set(x, 0.145, z); m.receiveShadow = true;
+      this.scene.add(m);
+    };
+    // Runner mats down the centre of every aisle between the stall rows.
+    let ci = 0;
+    for (const az of [109, 143, 177]) {
+      for (let x = -272; x <= -140; x += 11) { mat(x, az, 11.4, 13, ci++); }
+    }
+    // Strips along the stall fronts, where the sellers stand.
+    for (const fz of [99.5, 133, 153.5, 167]) {
+      for (let x = -268; x <= -148; x += 24) { mat(x, fz, 21, 4.6, ci++); }
+    }
+    // -- scattered goods at the stall fronts and aisle edges --
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0xa97c50 });
+    const sackMats = [0xc2a878, 0x9c8b6f, 0x7f8c5c, 0xb08968]
+      .map((c) => new THREE.MeshLambertMaterial({ color: c }));
+    const fruitMats = [0xe67e22, 0xc0392b, 0x27ae60, 0xf1c40f, 0x9b5de5]
+      .map((c) => new THREE.MeshLambertMaterial({ color: c }));
+    const crateGeo = new THREE.BoxGeometry(1.15, 1.15, 1.15);
+    const sackGeo = new THREE.SphereGeometry(0.62, 8, 6);
+    const fruitGeo = new THREE.SphereGeometry(0.19, 7, 6);
+    const basketGeo = new THREE.CylinderGeometry(0.58, 0.4, 0.55, 9);
+    const fruit = (grp, x, y, z, seed) => {
+      const fr = new THREE.Mesh(fruitGeo, fruitMats[seed % fruitMats.length]);
+      fr.position.set(x, y, z); grp.add(fr);
+    };
+    const cluster = (x, z, kind) => {
+      const grp = new THREE.Group();
+      if (kind === 0) {          // stacked crates, the top one full of produce
+        const c1 = new THREE.Mesh(crateGeo, woodMat); c1.position.y = 0.68; grp.add(c1);
+        const c2 = new THREE.Mesh(crateGeo, woodMat);
+        c2.position.set(0.25, 1.82, 0.1); c2.rotation.y = 0.4; grp.add(c2);
+        for (let f = 0; f < 6; f++) fruit(grp, 0.25 - 0.3 + (f % 3) * 0.32, 2.48, 0.1 - 0.18 + ((f / 3) | 0) * 0.34, f + ((x * 7) | 0));
+      } else if (kind === 1) {   // sacks slumped in a pile
+        for (let s = 0; s < 3; s++) {
+          const sk = new THREE.Mesh(sackGeo, sackMats[s % sackMats.length]);
+          sk.scale.y = 0.72; sk.position.set((s - 1) * 0.72, 0.55, (s % 2) * 0.4 - 0.2); grp.add(sk);
+        }
+      } else if (kind === 2) {   // baskets of produce beside a low crate
+        const cr = new THREE.Mesh(crateGeo, woodMat); cr.position.set(0.78, 0.68, 0.2); grp.add(cr);
+        for (let b = 0; b < 2; b++) {
+          const bx = -0.55 + b * 0.15, bz = -0.5 + b * 0.85;
+          const bk = new THREE.Mesh(basketGeo, woodMat); bk.position.set(bx, 0.39, bz); grp.add(bk);
+          for (let f = 0; f < 4; f++) fruit(grp, bx - 0.2 + (f % 2) * 0.36, 0.72, bz - 0.16 + ((f / 2) | 0) * 0.32, f + b * 2);
+        }
+      } else {                   // a lone produce crate, fruit heaped on top
+        const cr = new THREE.Mesh(crateGeo, woodMat);
+        cr.position.y = 0.68; cr.rotation.y = rnd() * 0.6; grp.add(cr);
+        for (let f = 0; f < 7; f++) fruit(grp, -0.32 + (f % 3) * 0.3, 1.32 + (f === 6 ? 0.2 : 0), -0.2 + ((f / 3) | 0) * 0.36, f);
+      }
+      grp.position.set(x, 0, z);
+      grp.rotation.y = rnd() * Math.PI;
+      grp.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+      this.scene.add(grp);
+    };
+    let kind = 0;
+    const scatter = (z, x0, x1, step) => {
+      for (let x = x0; x <= x1; x += step) cluster(x + (rnd() - 0.5) * 2.4, z + (rnd() - 0.5) * 1.2, kind++ % 4);
+    };
+    scatter(132.5, -266, -152, 8.5);   // main aisle, north edge (staged stretch — densest)
+    scatter(154.5, -266, -152, 9.5);   // main aisle, south edge
+    scatter(101, -264, -156, 15);      // north aisle edges
+    scatter(118.5, -264, -156, 15);
+    scatter(168.5, -264, -156, 17);    // south front of the last row
+    // -- low string lights sagging over the main aisle --
+    const bulbMatD = new THREE.MeshBasicMaterial({ color: 0xffd98a });
+    const bulbGeoS = new THREE.SphereGeometry(0.21, 6, 6);
+    const wireMat = new THREE.LineBasicMaterial({ color: 0x2b2b26 });
+    const strand = (x1, y1, z1, x2, y2, z2, sag) => {
+      const pts = [], N = 16;
+      for (let i = 0; i <= N; i++) {
+        const t = i / N;
+        pts.push(new THREE.Vector3(
+          x1 + (x2 - x1) * t,
+          y1 + (y2 - y1) * t - Math.sin(t * Math.PI) * sag,
+          z1 + (z2 - z1) * t));
+      }
+      this.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wireMat));
+      for (let i = 1; i < N; i += 2) {
+        const b = new THREE.Mesh(bulbGeoS, bulbMatD);
+        b.position.copy(pts[i]); b.position.y -= 0.24;
+        this.scene.add(b);
+      }
+    };
+    for (let x = -264; x <= -204; x += 10) strand(x, 5.6, 128.5, x, 5.6, 157.5, 1.1);  // across the aisle
+    for (const lz of [133.5, 152.5]) {                                                // along both edges
+      for (let x = -268; x < -150; x += 14.75) strand(x, 5.2, lz, x + 14.75, 5.2, lz, 0.7);
+    }
+    // -- standing boards at both entrances of the main aisle --
+    const poleMatD = new THREE.MeshLambertMaterial({ color: 0x3c4148 });
+    const frameMatD = new THREE.MeshLambertMaterial({ color: 0x22262b });
+    const board = (x, z, ry, title, sub) => {
+      const grp = new THREE.Group();
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 3.2, 6), poleMatD);
+      post.position.y = 1.6; grp.add(post);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.8, 0.16), frameMatD);
+      panel.position.y = 3.7; panel.castShadow = true; grp.add(panel);
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(4.9, 1.55),
+        new THREE.MeshBasicMaterial({ map: signTexture(title, sub, "#6e1423", "#ffd98a"), side: THREE.DoubleSide }));
+      face.position.set(0, 3.7, 0.1); grp.add(face);
+      grp.position.set(x, 0, z); grp.rotation.y = ry;
+      this.scene.add(grp);
+    };
+    board(-222, 131.8, -Math.PI / 2 + 0.15, "PASAR MALAM", "Lorong tengah — jajan & kopi");
+    board(-222, 154.2, -Math.PI / 2 - 0.15, "JAJANAN SENJA", "Sate — soto — es kelapa");
+    board(-276, 131.8, Math.PI / 2 - 0.15, "PASAR MALAM", "Lorong tengah — jajan & kopi");
+    board(-276, 154.2, Math.PI / 2 + 0.15, "JAJANAN SENJA", "Sate — soto — es kelapa");
   }
 
   buildPort(rnd) {

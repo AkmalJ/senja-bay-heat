@@ -33,28 +33,31 @@ export function stageScene(name, api) {
       // On-foot combat INSIDE the night market: Raka stands in the aisle
       // between the z=126 stall row (fronts + signs facing him) and the
       // z=160 row (backs + awnings receding on the right), looking east
-      // down the aisle into the Kerang Boys the clear stage spawns.
+      // down the aisle into the Kerang Boys the clear stage spawns. The
+      // aisle floor is dressed now — runner mats underfoot, goods piled
+      // at both stall fronts, string lights sagging overhead — and Raka
+      // stands closer to the lit row so the stalls loom over the frame.
       api.setClock(19.3);
       api.setStats({ money: 7270, respect: 940, health: 95, armor: 27 });
       api.startJobAt(1, 1);                    // clear-the-aisles stage (spawns hostiles)
-      api.placeOnFoot(-248, 148, 2.65);        // in the aisle, facing NE into the stall row
+      api.placeOnFoot(-246, 141.5, 2.65);      // in the aisle, facing NE into the stall row
       api.setCamOffset(0);
       // Kerang Boys posted in the aisle, already in SMG range of Raka.
-      api.addPed(-236, 138, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-240, 134, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-246, 132, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-237.5, 134, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-240, 136.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-234.5, 138.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // Shoppers threading the aisle between the lit stalls.
-      api.addPed(-252, 138, {});
-      api.addPed(-243, 137, {});
-      api.addPed(-253, 143, {});
-      api.addPed(-240, 146, {});
+      api.addPed(-252, 137.5, {});
+      api.addPed(-243.5, 145, {});
+      api.addPed(-256.5, 144, {});
+      api.addPed(-236, 146.5, {});
       // A shopper's scooter parked in the near foreground of the aisle,
       // and one of the bay's hidden packages glowing further down it
       // (only the beach and pier packages are marked found, so this
       // one stays lit in the frame).
-      api.parkCar("Senja Scooter", -242, 140, 2.9);
+      api.parkCar("Senja Scooter", -253, 149, 2.6);
       api.setPackagesFound(2);
-      api.parkCar("Bemo Pickup", -156, 143, 1.35);
+      api.parkCar("Bemo Pickup", -202, 144, 1.35);
       api.selectWeapon("smg");
       api.setWanted(2, true);
       api.spawnFootPack(2);
