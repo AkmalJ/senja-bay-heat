@@ -81,22 +81,65 @@ function stripeTexture(a, b) {
 }
 
 function matTexture(base, accent) {
-  // A woven market mat: coloured field, border bands and a diamond
-  // lattice, so a flat rug reads as patterned cloth from the air.
+  // A woven market mat, drawn as a seamless tile: a fine weave and a
+  // small diamond lattice with dots at the crossings. The material
+  // repeats the tile 3x3 over each mat, so the motif stays at woven-
+  // cloth scale — no border band, nothing that fights the tiling.
   const c = document.createElement("canvas"); c.width = 128; c.height = 128;
   const g = c.getContext("2d");
   g.fillStyle = base; g.fillRect(0, 0, 128, 128);
-  g.strokeStyle = accent; g.lineWidth = 7; g.strokeRect(7, 7, 114, 114);
-  g.lineWidth = 2; g.strokeRect(19, 19, 90, 90);
-  g.fillStyle = accent;
+  // Weave: faint alternating threads across the field.
+  for (let y = 0; y < 128; y += 4) {
+    g.fillStyle = (y / 4) % 2 ? "rgba(0,0,0,0.055)" : "rgba(255,255,255,0.045)";
+    g.fillRect(0, y, 128, 2);
+  }
+  // Diamond lattice, 4x4 to the tile, each diamond a ring of accent.
   for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
-    const cx = 27 + x * 25, cy = 27 + y * 25;
+    const cx = 16 + x * 32, cy = 16 + y * 32;
+    g.fillStyle = accent;
     g.beginPath();
-    g.moveTo(cx, cy - 7); g.lineTo(cx + 7, cy); g.lineTo(cx, cy + 7); g.lineTo(cx - 7, cy);
+    g.moveTo(cx, cy - 8); g.lineTo(cx + 8, cy); g.lineTo(cx, cy + 8); g.lineTo(cx - 8, cy);
     g.fill();
+    g.fillStyle = base;
+    g.beginPath();
+    g.moveTo(cx, cy - 3.4); g.lineTo(cx + 3.4, cy); g.lineTo(cx, cy + 3.4); g.lineTo(cx - 3.4, cy);
+    g.fill();
+  }
+  // Dots where the lattice crossings fall, edges included so it tiles.
+  g.fillStyle = accent;
+  for (let y = 0; y <= 4; y++) for (let x = 0; x <= 4; x++) {
+    g.beginPath(); g.arc(x * 32, y * 32, 1.7, 0, 6.3); g.fill();
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(3, 3);
+  return t;
+}
+
+function earthTexture() {
+  // Packed market earth: a dark warm brown with soft blotches and a
+  // faint pebble speckle, so the bare ground between the mats has
+  // grain instead of reading as one flat colour.
+  const c = document.createElement("canvas"); c.width = 256; c.height = 256;
+  const g = c.getContext("2d");
+  const rnd = mulberry(20261122);
+  g.fillStyle = "#6b563e"; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 26; i++) {
+    g.fillStyle = rnd() < 0.5 ? "rgba(0,0,0,0.05)" : "rgba(255,235,200,0.04)";
+    g.beginPath();
+    g.ellipse(rnd() * 256, rnd() * 256, 14 + rnd() * 30, 10 + rnd() * 22, rnd() * 3.2, 0, 6.3);
+    g.fill();
+  }
+  for (let i = 0; i < 2600; i++) {
+    const v = rnd();
+    g.fillStyle = v < 0.45 ? "rgba(40,30,18,0.20)" : v < 0.8 ? "rgba(146,124,92,0.20)" : "rgba(190,168,128,0.16)";
+    g.fillRect(rnd() * 256, rnd() * 256, 1 + rnd() * 2.2, 1 + rnd() * 2.2);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(9, 7);
   return t;
 }
 
@@ -449,31 +492,42 @@ export class City {
   }
 
   buildMarketDressing() {
-    // Ground dressing for Pasar Malam: patterned mats under the stall
-    // rows and down the aisles, goods piled at the stall fronts, low
+    // Ground dressing for Pasar Malam: a speckled packed-earth patch
+    // under the whole precinct, woven mats laid over about half of it
+    // — segmented runners down the aisles, a strip at each stall front,
+    // honest earth in the gaps — goods piled at the stall fronts, low
     // string lights sagging over the main aisle and standing boards at
     // its entrances. Everything sits at the aisle edges — the walkways
     // stay clear — and nothing here adds a collider, the same rule as
     // the port's scattered barrels and crates. A private seed keeps the
     // shared rnd sequence (and every other district) untouched.
     const rnd = mulberry(20261118);
-    // -- mats: two-tone patterned rugs in batik colours --
-    const matCols = [["#8e2f32", "#e9c46a"], ["#1f6f6b", "#f4a261"], ["#c9962e", "#6e1423"],
-      ["#35477d", "#e9c46a"], ["#6e2434", "#2a9d8f"]];
+    // -- the market earth: dark, grainy, deliberately quiet, so the
+    // mats read as rugs laid on a market floor, not a carpet --
+    const earth = new THREE.Mesh(new THREE.PlaneGeometry(144, 104),
+      new THREE.MeshLambertMaterial({ map: earthTexture() }));
+    earth.rotation.x = -Math.PI / 2;
+    earth.position.set(-206, 0.115, 136);
+    earth.receiveShadow = true;
+    this.scene.add(earth);
+    // -- mats: small-pattern woven rugs in muted batik colours --
+    const matCols = [["#71292b", "#b08d4f"], ["#2b534e", "#b57e52"], ["#8f6b2d", "#5f1d24"],
+      ["#3a4358", "#a8894a"], ["#5d2731", "#55806f"]];
     const matMats = matCols.map(([a, b]) => new THREE.MeshLambertMaterial({ map: matTexture(a, b) }));
     const mat = (x, z, w, d, ci) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.07, d), matMats[ci % matMats.length]);
       m.position.set(x, 0.145, z); m.receiveShadow = true;
       this.scene.add(m);
     };
-    // Runner mats down the centre of every aisle between the stall rows.
+    // Segmented runners down the centre of every aisle, each rug
+    // separated from the next by a gap of bare earth.
     let ci = 0;
     for (const az of [109, 143, 177]) {
-      for (let x = -272; x <= -140; x += 11) { mat(x, az, 11.4, 13, ci++); }
+      for (let x = -264.5; x <= -142; x += 14.5) { mat(x, az, 12.6, 11, ci++); }
     }
-    // Strips along the stall fronts, where the sellers stand.
+    // A strip at each stall front, where the sellers stand.
     for (const fz of [99.5, 133, 153.5, 167]) {
-      for (let x = -268; x <= -148; x += 24) { mat(x, fz, 21, 4.6, ci++); }
+      for (let x = -268; x <= -148; x += 24) { mat(x, fz, 10.5, 3.4, ci++); }
     }
     // -- scattered goods at the stall fronts and aisle edges --
     const woodMat = new THREE.MeshLambertMaterial({ color: 0xa97c50 });
