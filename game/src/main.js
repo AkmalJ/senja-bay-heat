@@ -37,7 +37,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87b5d9);
 scene.fog = new THREE.Fog(0xd9c9a8, 180, 720);
 const camera = new THREE.PerspectiveCamera(63, innerWidth / innerHeight, 0.1, 2600);
-const hemi = new THREE.HemisphereLight(0xbfd9ff, 0x8a7a5a, 0.9);
+const hemi = new THREE.HemisphereLight(0xa9ccd2, 0x997950, 0.9);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe3b3, 2.0);
 sun.castShadow = true;
@@ -346,14 +346,16 @@ const flash = new THREE.PointLight(0xffc46b, 0, 18);
 scene.add(flash);
 let fireTimer = 0;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
-// Gunfire visuals. A shot only reads — in play, and in any frame a
-// player might capture — if all three of its signs are big enough to
-// survive the render: a thick glowing beam, a muzzle flash orb, and a
-// fat spark burst where the round lands. The old one-pixel line
-// tracer and five grain-sized sparks vanished past spitting range, so
-// a firefight rendered as men standing still, and the cause-effect
-// line from gun to target could not be seen at all. Beams and orbs
-// are pooled and recycled like the ambient Effects pool, so the frame
+// Gunfire visuals, tuned as TRACERS (v5). The v4 pooled beams — an
+// 11 cm core wrapped in a 24 cm halo, alive for 0.16 s — read on
+// screen as laser slabs, not bullets. A tracer is the opposite
+// recipe: a thin warm core (5 cm) with a tight glow (11 cm at low
+// opacity) that lives for a few frames only, while the IMPACT
+// carries the read — a fat warm spark burst plus a puff of dust and
+// smoke where the round lands, and a tight orb at the muzzle.
+// Hostile fire is thinner, dimmer and redder, and dies faster, so a
+// two-way fight never becomes a light show. Beams and orbs are
+// pooled and recycled like the ambient Effects pool, so the frame
 // loop never allocates for gunfire.
 const beams = [];
 let beamCursor = 0, lastBeamEnd = null;
@@ -365,11 +367,13 @@ function beamPart(width, color, opacity) {
   scene.add(mesh);
   return { mesh, mat, width, baseOpacity: opacity };
 }
-for (let i = 0; i < 28; i++) beams.push({ core: beamPart(0.11, 0xffe9a8, 0.95), halo: beamPart(0.24, 0xff9d2e, 0.27), life: 0, maxLife: 1 });
+for (let i = 0; i < 28; i++) beams.push({ core: beamPart(0.05, 0xffeec2, 0.95), halo: beamPart(0.11, 0xffa64d, 0.13), life: 0, maxLife: 1 });
 function fireBeam(a, b, hostile) {
   const slot = beams[beamCursor]; beamCursor = (beamCursor + 1) % beams.length;
-  slot.core.mat.color.setHex(hostile ? 0xffc4b8 : 0xffe9a8);
-  slot.halo.mat.color.setHex(hostile ? 0xff4a3d : 0xff9d2e);
+  slot.core.mat.color.setHex(hostile ? 0xff9d8a : 0xffeec2);
+  slot.halo.mat.color.setHex(hostile ? 0xff4a3d : 0xffa64d);
+  slot.core.baseOpacity = hostile ? 0.6 : 0.95;
+  slot.halo.baseOpacity = hostile ? 0.07 : 0.13;
   const len = Math.max(a.distanceTo(b), 0.1);
   for (const part of [slot.core, slot.halo]) {
     part.mesh.position.copy(a).add(b).multiplyScalar(0.5);
@@ -378,7 +382,7 @@ function fireBeam(a, b, hostile) {
     part.mat.opacity = part.baseOpacity;
     part.mesh.visible = true;
   }
-  slot.life = slot.maxLife = 0.16;
+  slot.life = slot.maxLife = hostile ? 0.07 : 0.09;
   lastBeamEnd = b.clone();
 }
 // The muzzle orb: a radial-gradient sprite, additive — the glowing
@@ -455,7 +459,7 @@ function shoot(dt) {
   const muzzle = new THREE.Vector3(-0.42, 1.32, 0.58).applyAxisAngle(Y_AXIS, player.heading).add(player.pos);
   if (w.id !== "fists") {
     flash.position.copy(muzzle); flash.intensity = 26;
-    fireOrb(flash.position, 0.95, 0xffffff);
+    fireOrb(flash.position, 0.72, 0xffffff);
   }
   // Nearest hittable along the ray: hostiles, police on foot, any car.
   let bestT = w.range, hit = null;
@@ -475,9 +479,13 @@ function shoot(dt) {
   end.setY(1.3);
   if (w.id !== "fists") fireBeam(muzzle, end, false);
   if (hit) {
-    burst(end, 0xffd166, 8, 2.2, 1.6, 1.5, 0.32);
+    // The impact carries the tracer's read (v5): a fat warm spark
+    // burst, a tight glow, and a puff of dust-smoke kicked off the
+    // target — the beam itself is only on screen for a few frames.
+    burst(end, 0xffc46b, 10, 2.6, 2.0, 1.35, 0.38);
     if (hit.health !== undefined && hit.kind === undefined) { // a person
-      fireOrb(end, 0.6, 0xffe9c4);
+      fireOrb(end, 0.5, 0xffe9c4);
+      fx.spawn(end.x, end.y, end.z, { n: 3, color: 0xa79e92, opacity: 0.38, size: 1.15, spread: 1.1, up: 1.5, life: 0.55, grow: 2.6, drag: 1.7 });
       hit.health -= w.damage; audio.hit();
       if (hit.health <= 0 && !hit.dead) {
         hit.dead = true; settleCorpse(hit.mesh);
@@ -485,6 +493,7 @@ function shoot(dt) {
       } else if (hit.hostile) hit.flee = 0; else hit.flee = 5;
     } else if (hit.kind) { // a car
       damageCar(hit, w.damage * 0.7, end);
+      fx.dustPuff(end.x, end.y, end.z, false);
       if (hit === targetCar) commitCrime(3);
     }
   }
@@ -503,6 +512,46 @@ function damageCar(car, dmg, at) {
     audio.crash(1);
     if (S.inCar === car) { S.health -= 12; }
   }
+}
+
+// ---------- vehicle smoke & fire ----------
+// Damage you can SEE from across the street (v5): a car under 35
+// health trails grey smoke from its hood; at 15 — and once wrecked —
+// it catches fire properly: pooled flame tongues and a black smoke
+// column from the Effects pool, plus one shared flickering point
+// light that moves to whichever wreck burns nearest the action.
+// Real gameplay feedback (a chase target visibly dying is a chase
+// you can read) and the drama anchor the screenshot frames borrow.
+const fireLight = new THREE.PointLight(0xff8a3d, 0, 30, 1.6);
+scene.add(fireLight);
+const FLAME_COLS = [0xff7a2e, 0xffb03a, 0xe64a19];
+function updateCarFires(dt, now) {
+  let lightCar = null;
+  for (const car of cars) {
+    const burning = car.wrecked || car.health <= 15;
+    const smoking = !burning && car.health <= 35;
+    if (!burning && !smoking) { car.fxAcc = 0; continue; }
+    if (burning && !lightCar) lightCar = car;
+    car.fxAcc = (car.fxAcc || 0) + dt;
+    const interval = burning ? 0.055 : 0.16;
+    if (car.fxAcc < interval) continue;
+    car.fxAcc = 0;
+    const f = fwd(car.heading);
+    const len = car.mesh.userData.length || 4.6;
+    const hx = car.pos.x + f.x * (len / 2 - 1.1), hz = car.pos.z + f.z * (len / 2 - 1.1);
+    if (burning) {
+      for (let i = 0; i < 2; i++) fx.spawn(hx, 1.15, hz, { n: 1, color: FLAME_COLS[(Math.random() * 3) | 0], opacity: 0.85, size: 1.3, spread: 0.7, up: 3.4, life: 0.5, grow: 0.5, drag: 0.6 });
+      fx.spawn(hx, 1.9, hz, { n: 1, color: 0x2e2e2e, opacity: 0.5, size: 1.6, spread: 0.8, up: 2.8, life: 1.25, grow: 3.0, drag: 1.2 });
+    } else {
+      fx.spawn(hx, 1.3, hz, { n: 1, color: 0x777777, opacity: 0.42, size: 1.2, spread: 0.6, up: 2.2, life: 1.0, grow: 2.6, drag: 1.2 });
+    }
+  }
+  if (lightCar) {
+    const f = fwd(lightCar.heading);
+    const len = lightCar.mesh.userData.length || 4.6;
+    fireLight.position.set(lightCar.pos.x + f.x * (len / 2 - 1.1), 1.8, lightCar.pos.z + f.z * (len / 2 - 1.1));
+    fireLight.intensity = 150 + Math.sin(now * 0.021) * 45 + Math.random() * 35;
+  } else fireLight.intensity = 0;
 }
 
 // ---------- traffic ----------
@@ -678,7 +727,7 @@ function updatePeds(dt) {
           // at his muzzle and a beam to the man he is shooting at —
           // so a two-way fight reads from either side.
           const muzzle = new THREE.Vector3(-0.42, 1.35, 0.35).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
-          fireOrb(muzzle, 0.8, 0xffc9b0);
+          fireOrb(muzzle, 0.55, 0xffc9b0);
           fireBeam(muzzle, new THREE.Vector3(fp.x, 1.3, fp.z), true);
           burst(new THREE.Vector3(fp.x, 1.2, fp.z), 0xff6b81, 5, 2, 1.5, 1.6);
           if (S.inCar) damageCar(S.inCar, 2, null); else hurtPlayer(4);
@@ -842,48 +891,63 @@ function updateCamera(dt) {
   // reference games shoot their street scenes. The old 5.8 m /
   // 2.5 m floated high and far and shrank everything he did. With
   // the pitch floor at 0.02 the camera's lowest point is ~1.85 m,
-  // still clear of the ground plane. The driving camera is
-  // untouched.
-  const dist = S.inCar ? 9.6 : 4.2, height = S.inCar ? 3.3 : 1.8;
+  // still clear of the ground plane. The driving follow dropped
+  // too (v5): 9.6 m / 3.3 m up floated above the chase like a
+  // drone; 8.2 m / 2.5 m sits in the car's wake at boot height,
+  // the reference chase framing.
+  const dist = S.inCar ? 8.2 : 4.2, height = S.inCar ? 2.5 : 1.8;
   const back = { x: Math.sin(camYaw) * Math.cos(camPitch), z: Math.cos(camYaw) * Math.cos(camPitch) };
   const tx = fp.x + back.x * dist, tz = fp.z + back.z * dist;
   camera.position.lerp(new THREE.Vector3(tx, fp.y + height + Math.sin(camPitch) * dist * 0.55, tz), 1 - Math.pow(0.0001, dt));
   camera.lookAt(fp.x, fp.y + 1.6, fp.z);
-  sun.position.set(fp.x + 90, 130, fp.z + 50);
+  // The senja sun rides LOW (v5): ~17 degrees up, far to the west —
+  // long warm shadows raking across the streets at every hour, the
+  // single strongest "it is always dusk here" cue the game has.
+  sun.position.set(fp.x + 130, 46, fp.z - 70);
   sun.target.position.set(fp.x, 0, fp.z);
 }
-let darkness = 0;   // 0 at noon, 1 at deep night; updateSky owns it
+let darkness = 0;   // 0.12 at the brightest senja hour, ~0.62 in the small hours; updateSky owns it
 const EMBER = new THREE.Color(0xff8a4a);
+const FOG_DAY = new THREE.Color(0xe8bd8f), FOG_NIGHT = new THREE.Color(0x3d4457);
 function updateSky() {
   const h = S.clock;
-  // Sunrise 06:30, sunset 19:30; a long golden dusk band centred on 19:00.
-  const day = clamp(Math.sin(((h - 6.5) / 13) * Math.PI), 0, 1);
-  const dusk = clamp(1 - Math.abs(h - 19.0) / 2.1, 0, 1);
-  const lightLevel = clamp(day * 1.25 + dusk * 0.55, 0, 1);
+  // SENJA LOCK (v5): Senja Bay never leaves dusk. The clock still
+  // turns for the missions, but the light lives on one warm arc —
+  // the day curve runs 06:00–19:30 and the level is floored at
+  // 0.38 and capped at 0.88, so no hour is flat midday blue and no
+  // hour is pitch black; an ember band centred on 18:36 warms
+  // everything it touches. One family at every hour: teal sky,
+  // amber horizon, lit lamps, long warm shadows.
+  const day = clamp(Math.sin(((h - 6) / 13.5) * Math.PI), 0, 1);
+  const dusk = clamp(1 - Math.abs(h - 18.6) / 2.6, 0, 1);
+  const lightLevel = 0.38 + day * 0.5;
   darkness = 1 - lightLevel;
-  const skyCol = new THREE.Color(0x1c2a4a).lerp(new THREE.Color(0x87b5d9), lightLevel).lerp(new THREE.Color(0xff9a5c), dusk * 0.4);
-  scene.background.copy(skyCol);
-  scene.fog.color.copy(skyCol).lerp(new THREE.Color(0xffffff), 0.25);
+  scene.background.setHex(0x2e6b7a);
+  scene.fog.color.copy(FOG_NIGHT).lerp(FOG_DAY, day).lerp(EMBER, dusk * 0.22);
   if (city.skyDome) {
-    // The dome carries the gradient; tint it from night navy to full day.
+    // The dome texture carries the senja gradient; the tint only
+    // breathes it between the small hours and the bright afternoon.
     city.skyDome.userData.mat.color.setRGB(
-      0.22 + lightLevel * 0.78 + dusk * 0.25,
-      0.26 + lightLevel * 0.74,
-      0.45 + lightLevel * 0.55);
+      0.55 + day * 0.55 + dusk * 0.1,
+      0.6 + day * 0.44,
+      0.78 + day * 0.3);
   }
-  // The look stays bright and stylised at every hour: the sun never drops
-  // below a moonlight floor, and the hemisphere fill does most of the work.
-  sun.intensity = 0.8 + day * 1.6 + dusk * 0.6;
-  sun.color.setHex(dusk > 0.35 ? 0xffb37a : day < 0.2 ? 0xaac4ff : 0xffe3b3);
-  hemi.intensity = 0.78 + day * 0.3;
-  // The sun disc deepens to ember orange as the dusk band peaks, and the
-  // dome's horizon band (already warm in the gradient) picks it up.
+  // The sun is always warm now — pale gold at the day's peak, deep
+  // amber through the dusk band — and the hemisphere fill (pale
+  // teal over warm earth, set at creation) does the shadow lifting.
+  sun.intensity = 1.15 + day * 0.95 + dusk * 0.35;
+  sun.color.setHex(day > 0.55 ? 0xffdca6 : 0xffb37a);
+  hemi.intensity = 0.72 + day * 0.25;
+  // The sun disc rides low on the dome and burns ember all day,
+  // deepest as the dusk band peaks.
   if (city.skyDome && city.skyDome.userData.sunDisc) {
-    city.skyDome.userData.sunDisc.material.color.setHex(0xfff2c0).lerp(EMBER, dusk * 0.85);
+    city.skyDome.userData.sunDisc.material.color.setHex(0xfff2c0).lerp(EMBER, 0.35 + dusk * 0.55);
   }
-  const night = lightLevel < 0.45;
-  for (const lamp of city.lamps) lamp.material.color.setHex(night ? 0xffe9a8 : 0x8a8f96);
-  for (const pl of city.nightLights) pl.intensity = lightLevel < 0.3 ? 520 : 0;
+  // Lamps and work lights belong to the senja: they are on for the
+  // whole dusk family, only resting near the brightest hour.
+  const lampsOn = lightLevel < 0.8;
+  for (const lamp of city.lamps) lamp.material.color.setHex(lampsOn ? 0xffe9a8 : 0x8a8f96);
+  for (const pl of city.nightLights) pl.intensity = lightLevel < 0.62 ? 520 : lightLevel < 0.8 ? 240 : 0;
 }
 
 // ---------- HUD state ----------
@@ -1131,9 +1195,10 @@ function frame(now) {
       b.position.y = 0.1 + Math.sin(now / 820 + b.userData.phase) * 0.2;
       b.rotation.z = Math.sin(now / 970 + b.userData.phase) * 0.03;
     }
-    poolMat.opacity = darkness * 0.36;
-    coneMat.opacity = darkness * 0.14;
+    poolMat.opacity = darkness * 0.34;
+    coneMat.opacity = darkness * 0.16;
     fx.update(dt);
+    updateCarFires(dt, now);
     hud.update(dt, hudState());
     audio.music(dt, true);
     audio.setEngine(!!S.inCar, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0);

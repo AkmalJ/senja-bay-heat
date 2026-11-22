@@ -80,43 +80,6 @@ function stripeTexture(a, b) {
   return t;
 }
 
-function matTexture(base, accent) {
-  // A woven market mat, drawn as a seamless tile: a fine weave and a
-  // small diamond lattice with dots at the crossings. The material
-  // repeats the tile 3x3 over each mat, so the motif stays at woven-
-  // cloth scale — no border band, nothing that fights the tiling.
-  const c = document.createElement("canvas"); c.width = 128; c.height = 128;
-  const g = c.getContext("2d");
-  g.fillStyle = base; g.fillRect(0, 0, 128, 128);
-  // Weave: faint alternating threads across the field.
-  for (let y = 0; y < 128; y += 4) {
-    g.fillStyle = (y / 4) % 2 ? "rgba(0,0,0,0.055)" : "rgba(255,255,255,0.045)";
-    g.fillRect(0, y, 128, 2);
-  }
-  // Diamond lattice, 4x4 to the tile, each diamond a ring of accent.
-  for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
-    const cx = 16 + x * 32, cy = 16 + y * 32;
-    g.fillStyle = accent;
-    g.beginPath();
-    g.moveTo(cx, cy - 8); g.lineTo(cx + 8, cy); g.lineTo(cx, cy + 8); g.lineTo(cx - 8, cy);
-    g.fill();
-    g.fillStyle = base;
-    g.beginPath();
-    g.moveTo(cx, cy - 3.4); g.lineTo(cx + 3.4, cy); g.lineTo(cx, cy + 3.4); g.lineTo(cx - 3.4, cy);
-    g.fill();
-  }
-  // Dots where the lattice crossings fall, edges included so it tiles.
-  g.fillStyle = accent;
-  for (let y = 0; y <= 4; y++) for (let x = 0; x <= 4; x++) {
-    g.beginPath(); g.arc(x * 32, y * 32, 1.7, 0, 6.3); g.fill();
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(3, 3);
-  return t;
-}
-
 function earthTexture() {
   // Packed market earth: a dark warm brown with soft blotches and a
   // faint pebble speckle, so the bare ground between the mats has
@@ -149,10 +112,19 @@ export function buildSky(scene, rnd) {
   // tropical sky the top of the frame is judged on.
   const c = document.createElement("canvas"); c.width = 4; c.height = 256;
   const g = c.getContext("2d");
+  // SENJA gradient (v5): the dome itself carries the locked dusk —
+  // deep teal at the zenith melting through dusty teal and warm haze
+  // into an amber-ember horizon band. updateSky only breathes this
+  // with a tint; the family never changes with the hour.
+  // The visible sky is the canvas's top half (sphere UV: canvas top
+  // = zenith, canvas middle = horizon), so the amber band is placed
+  // around the middle — a band at the canvas bottom would sit below
+  // the ground and never be seen.
   const grad = g.createLinearGradient(0, 0, 0, 256);
-  grad.addColorStop(0, "#3d7ac2"); grad.addColorStop(0.45, "#79aede");
-  grad.addColorStop(0.68, "#bcd6ea"); grad.addColorStop(0.82, "#f2cf9e");
-  grad.addColorStop(0.93, "#ffb37a"); grad.addColorStop(1, "#ff9a5c");
+  grad.addColorStop(0, "#14384a"); grad.addColorStop(0.18, "#2e6b7a");
+  grad.addColorStop(0.32, "#7fa398"); grad.addColorStop(0.42, "#e8b078");
+  grad.addColorStop(0.48, "#ffb37a"); grad.addColorStop(0.53, "#ff8a4a");
+  grad.addColorStop(0.62, "#c65a30"); grad.addColorStop(1, "#6e3a24");
   g.fillStyle = grad; g.fillRect(0, 0, 4, 256);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const domeMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false });
@@ -161,10 +133,10 @@ export function buildSky(scene, rnd) {
   scene.add(dome);
   const sunDisc = new THREE.Mesh(new THREE.CircleGeometry(46, 24),
     new THREE.MeshBasicMaterial({ color: 0xfff2c0, fog: false }));
-  sunDisc.position.set(-420, 300, -900); sunDisc.lookAt(0, 60, 0);
+  sunDisc.position.set(-560, 105, -880); sunDisc.lookAt(0, 40, 0);
   scene.add(sunDisc);
   dome.userData.sunDisc = sunDisc;
-  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 });
+  const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffe9d2, transparent: true, opacity: 0.92 });
   for (let i = 0; i < 16; i++) {
     const cloud = new THREE.Group();
     const puffs = 3 + (rnd() * 3 | 0);
@@ -446,45 +418,75 @@ export class City {
   }
 
   buildMarket(rnd) {
-    // Pasar Malam: rows of stalls with striped awnings, painted name
-    // boards and goods piled on the counters, around the square.
-    const cols = [0xe63946, 0xf4a261, 0x2a9d8f, 0xe9c46a, 0x9b5de5];
+    // Pasar Malam (v5): a real night-market floor plan — three
+    // aisles, each a 4.2 m lane between two facing rows of stalls,
+    // a single backdrop row across the south service lane, and a
+    // crossroads cut through every row at x ≈ −210. A stall is a
+    // wooden counter under a sloped terpal canopy on two posts, a
+    // painted name board on its front, goods heaped on the counter
+    // and a warm lamp hanging at its front corner. The old open
+    // square — three rows marooned in a plaza — is gone: the
+    // geography itself now makes the corridors the market mission
+    // is fought in.
     const names = ["SATE SENJA", "ES TEH MANIS", "MIE AYAM", "KOPI TUBRUK", "PISANG GORENG", "LAUT SEGAR",
       "NASI CAMPUR", "SOTO LAMONGAN", "ES KELAPA", "TAHU CRISPY", "BAKSO SAPI", "MARTABAK MANIS",
       "JAJAN PASAR", "KERANG REBUS", "AYAM GEPREK", "SATE PADANG", "ES CENDOL", "ROTI BAKAR"];
-    for (let row = 0; row < 3; row++) for (let i = 0; i < 6; i++) {
-      const x = -268 + i * 24, z = 92 + row * 34;
-      const n = row * 6 + i;
-      const stall = new THREE.Group();
-      const box = new THREE.Mesh(new THREE.BoxGeometry(9, 2.4, 6),
-        new THREE.MeshLambertMaterial({ color: 0x9a6b43 }));
-      box.position.y = 1.2; box.castShadow = true; stall.add(box);
-      const awn = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.3, 7.5),
-        new THREE.MeshLambertMaterial({ map: stripeTexture("#" + cols[n % 5].toString(16).padStart(6, "0"), "#f5efe0") }));
-      awn.position.y = 3.1; awn.rotation.z = 0.06; stall.add(awn);
-      const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 1.5),
-        new THREE.MeshBasicMaterial({ map: signTexture(names[n % names.length], "", "#20242a", "#ffd98a") }));
-      sign.position.set(0, 2.3, 3.06); stall.add(sign);
-      for (let gd = 0; gd < 3; gd++) {
-        const goods = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.9),
-          new THREE.MeshLambertMaterial({ color: cols[(n + gd) % 5] }));
-        goods.position.set(-2.6 + gd * 2.4, 2.68, 2.2); stall.add(goods);
+    const tarps = [0x2f6db3, 0xe67e22, 0x2e8b6a, 0xb03a2e, 0x8a8f96, 0xd9a441];
+    const woods = [0x9a6b43, 0x8a5f3a, 0xa97c50];
+    const signBgs = ["#20242a", "#4a1f1f", "#1f3a2a", "#2a1f3d", "#3d2c1f"];
+    const goodsCols = [0xe63946, 0xf4a261, 0x2a9d8f, 0xe9c46a, 0x9b5de5];
+    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+    const postMat = new THREE.MeshLambertMaterial({ color: 0x6e5136 });
+    let n = 0;
+    const stall = (x, z, ry) => {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(10.5, 2.3, 4.6),
+        new THREE.MeshLambertMaterial({ color: woods[n % 3] }));
+      body.position.set(0, 1.15, -0.2); body.castShadow = true; g.add(body);
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(11.4, 0.14, 6.6),
+        new THREE.MeshLambertMaterial({ color: tarps[n % 6] }));
+      canopy.position.set(0, 3.5, 0.4); canopy.rotation.x = 0.14; canopy.castShadow = true; g.add(canopy);
+      for (const px of [-5.0, 5.0]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.2, 6), postMat);
+        post.position.set(px, 1.6, 2.2); g.add(post);
       }
-      stall.position.set(x, 0, z);
-      this.scene.add(stall);
-      this.addCollider(x, z, 4.5, 3);
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 1.0),
+        new THREE.MeshBasicMaterial({ map: signTexture(names[n % names.length], "", signBgs[n % 5], "#ffd98a") }));
+      sign.position.set(0, 2.68, 2.16); g.add(sign);
+      for (let gd = 0; gd < 3; gd++) {
+        const goods = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.6, 0.95),
+          new THREE.MeshLambertMaterial({ color: goodsCols[(n + gd) % 5] }));
+        goods.position.set(-3.2 + gd * 3.2, 2.6, 1.3); goods.castShadow = true; g.add(goods);
+      }
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.17, 6, 6), bulbMat);
+      bulb.position.set(-4.2, 2.9, 3.0); g.add(bulb);
+      g.position.set(x, 0, z); g.rotation.y = ry;
+      this.scene.add(g);
+      this.addCollider(x, z, 5.25, 2.5);
+      n++;
+    };
+    // Facing pairs (centre z, facing): the aisle is the 4.2 m
+    // between the two fronts; pairs repeat with a 1.6 m service
+    // gap between one pair's back and the next pair's back. Aisle
+    // 2 is centred on z = 109 — the aisle the hidden package and
+    // the market fight live in.
+    const rows = [
+      [88.6, 0], [97.8, Math.PI],        // aisle 1, centre z 93.2
+      [104.4, 0], [113.6, Math.PI],      // aisle 2, centre z 109
+      [120.2, 0], [129.4, Math.PI],      // aisle 3, centre z 124.8
+      [138.5, Math.PI],                  // south backdrop row
+    ];
+    for (const [rz, ry] of rows) {
+      for (let k = 0; k < 11; k++) {
+        const x = -268 + k * 11.5;
+        if (Math.abs(x + 210.5) < 6.5) continue;   // the crossroads
+        stall(x, rz, ry);
+      }
     }
-    // String lights over the square.
-    const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd98a });
-    for (let i = 0; i < 40; i++) {
-      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.35, 6, 6), bulbMat);
-      bulb.position.set(-275 + (i % 10) * 13, 6.5 + Math.sin(i) * 0.5, 92 + ((i / 10) | 0) * 34);
-      this.scene.add(bulb);
-    }
-    // Warm work lights that take over the square after dark.
-    for (const [lx, lz] of [[-240, 105], [-195, 140], [-235, 165]]) {
-      const pl = new THREE.PointLight(0xffb36b, 0, 85, 1.4);
-      pl.position.set(lx, 9, lz);
+    // Warm work lights standing over the aisles.
+    for (const [lx, lz] of [[-252, 109], [-210.5, 124.8], [-168, 93.2]]) {
+      const pl = new THREE.PointLight(0xffb36b, 0, 60, 1.4);
+      pl.position.set(lx, 4.6, lz);
       this.scene.add(pl);
       this.nightLights.push(pl);
     }
@@ -492,43 +494,26 @@ export class City {
   }
 
   buildMarketDressing() {
-    // Ground dressing for Pasar Malam: a speckled packed-earth patch
-    // under the whole precinct, woven mats laid over about half of it
-    // — segmented runners down the aisles, a strip at each stall front,
-    // honest earth in the gaps — goods piled at the stall fronts, low
-    // string lights sagging over the main aisle and standing boards at
-    // its entrances. Everything sits at the aisle edges — the walkways
-    // stay clear — and nothing here adds a collider, the same rule as
-    // the port's scattered barrels and crates. A private seed keeps the
-    // shared rnd sequence (and every other district) untouched.
+    // Ground dressing for Pasar Malam (v5): the packed-earth patch
+    // stays — dark, grainy, quiet — but the woven mats are GONE. A
+    // night-market floor is earth and stall-front boards, not
+    // carpet; the mats swallowed every frame they appeared in. The
+    // dressing now serves the aisle geography instead: goods
+    // clusters spilling off the stall fronts and piled at the
+    // crossroads corners, strings of bare bulbs sagging across the
+    // aisles, standing boards at the entrances, two gerobak food
+    // carts and parked motorbikes where the aisles end. A private
+    // seed keeps the shared rnd sequence (and every other district)
+    // untouched; only the carts and bikes add colliders, as solid
+    // furniture should.
     const rnd = mulberry(20261118);
-    // -- the market earth: dark, grainy, deliberately quiet, so the
-    // mats read as rugs laid on a market floor, not a carpet --
+    // -- the market earth: dark, grainy, deliberately quiet --
     const earth = new THREE.Mesh(new THREE.PlaneGeometry(144, 104),
       new THREE.MeshLambertMaterial({ map: earthTexture() }));
     earth.rotation.x = -Math.PI / 2;
     earth.position.set(-206, 0.115, 136);
     earth.receiveShadow = true;
     this.scene.add(earth);
-    // -- mats: small-pattern woven rugs in muted batik colours --
-    const matCols = [["#71292b", "#b08d4f"], ["#2b534e", "#b57e52"], ["#8f6b2d", "#5f1d24"],
-      ["#3a4358", "#a8894a"], ["#5d2731", "#55806f"]];
-    const matMats = matCols.map(([a, b]) => new THREE.MeshLambertMaterial({ map: matTexture(a, b) }));
-    const mat = (x, z, w, d, ci) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.07, d), matMats[ci % matMats.length]);
-      m.position.set(x, 0.145, z); m.receiveShadow = true;
-      this.scene.add(m);
-    };
-    // Segmented runners down the centre of every aisle, each rug
-    // separated from the next by a gap of bare earth.
-    let ci = 0;
-    for (const az of [109, 143, 177]) {
-      for (let x = -264.5; x <= -142; x += 14.5) { mat(x, az, 12.6, 11, ci++); }
-    }
-    // A strip at each stall front, where the sellers stand.
-    for (const fz of [99.5, 133, 153.5, 167]) {
-      for (let x = -268; x <= -148; x += 24) { mat(x, fz, 10.5, 3.4, ci++); }
-    }
     // -- scattered goods at the stall fronts and aisle edges --
     const woodMat = new THREE.MeshLambertMaterial({ color: 0xa97c50 });
     const sackMats = [0xc2a878, 0x9c8b6f, 0x7f8c5c, 0xb08968]
@@ -576,12 +561,22 @@ export class City {
     const scatter = (z, x0, x1, step) => {
       for (let x = x0; x <= x1; x += step) cluster(x + (rnd() - 0.5) * 2.4, z + (rnd() - 0.5) * 1.2, kind++ % 4);
     };
-    scatter(132.5, -266, -152, 8.5);   // main aisle, north edge (staged stretch — densest)
-    scatter(154.5, -266, -152, 9.5);   // main aisle, south edge
-    scatter(101, -264, -156, 15);      // north aisle edges
-    scatter(118.5, -264, -156, 15);
-    scatter(168.5, -264, -156, 17);    // south front of the last row
-    // -- low string lights sagging over the main aisle --
+    // Piles at the four corners where the crossroads cuts aisle 2.
+    cluster(-219.5, 103.2, kind++ % 4); cluster(-201.5, 103.2, kind++ % 4);
+    cluster(-219.5, 114.8, kind++ % 4); cluster(-201.5, 114.8, kind++ % 4);
+    // Spill along the stall fronts of aisles 1 and 3.
+    scatter(91.3, -262, -160, 17); scatter(95.1, -262, -160, 17);
+    scatter(122.9, -262, -160, 17); scatter(126.7, -262, -160, 17);
+    // Aisle 2's edges, west and east of the crossroads only — the
+    // stretch in between is where the market fight is staged, and
+    // its floor stays clean earth.
+    scatter(107.1, -262, -246, 16); scatter(110.9, -262, -246, 16);
+    scatter(107.1, -196, -160, 18); scatter(110.9, -196, -160, 18);
+    // The south plaza behind the backdrop row, and the north lane.
+    scatter(150, -262, -160, 13);
+    scatter(165, -260, -162, 15);
+    scatter(84.5, -258, -170, 22);
+    // -- low string lights sagging over the aisles --
     const bulbMatD = new THREE.MeshBasicMaterial({ color: 0xffd98a });
     const bulbGeoS = new THREE.SphereGeometry(0.21, 6, 6);
     const wireMat = new THREE.LineBasicMaterial({ color: 0x2b2b26 });
@@ -601,11 +596,13 @@ export class City {
         this.scene.add(b);
       }
     };
-    for (let x = -264; x <= -204; x += 10) strand(x, 5.6, 128.5, x, 5.6, 157.5, 1.1);  // across the aisle
-    for (const lz of [133.5, 152.5]) {                                                // along both edges
-      for (let x = -268; x < -150; x += 14.75) strand(x, 5.2, lz, x + 14.75, 5.2, lz, 0.7);
+    for (const zc of [93.2, 109, 124.8]) {                                            // across every aisle
+      for (let x = -262; x <= -158; x += 13) strand(x, 5.4, zc - 3.2, x, 5.4, zc + 3.2, 0.8);
     }
-    // -- standing boards at both entrances of the main aisle --
+    for (const lz of [106.9, 111.1]) {                                                // along aisle 2's edges
+      for (let x = -266; x < -152; x += 14.75) strand(x, 5.0, lz, x + 14.75, 5.0, lz, 0.7);
+    }
+    // -- standing boards at the crossroads and aisle mouths --
     const poleMatD = new THREE.MeshLambertMaterial({ color: 0x3c4148 });
     const frameMatD = new THREE.MeshLambertMaterial({ color: 0x22262b });
     const board = (x, z, ry, title, sub) => {
@@ -620,10 +617,83 @@ export class City {
       grp.position.set(x, 0, z); grp.rotation.y = ry;
       this.scene.add(grp);
     };
-    board(-222, 131.8, -Math.PI / 2 + 0.15, "PASAR MALAM", "Lorong tengah — jajan & kopi");
-    board(-222, 154.2, -Math.PI / 2 - 0.15, "JAJANAN SENJA", "Sate — soto — es kelapa");
-    board(-276, 131.8, Math.PI / 2 - 0.15, "PASAR MALAM", "Lorong tengah — jajan & kopi");
-    board(-276, 154.2, Math.PI / 2 + 0.15, "JAJANAN SENJA", "Sate — soto — es kelapa");
+    board(-218.5, 101.0, 0.8, "PASAR MALAM", "Lorong tengah — jajan & kopi");
+    board(-202.5, 117.0, -2.3, "JAJANAN SENJA", "Sate — soto — es kelapa");
+    board(-277, 105.0, Math.PI / 2 - 0.15, "PASAR MALAM", "Lorong tengah — jajan & kopi");
+    board(-145, 113.0, -Math.PI / 2 + 0.15, "JAJANAN SENJA", "Sate — soto — es kelapa");
+    // -- gerobak: the wheeled food carts every pasar malam runs on --
+    const gerobak = (x, z, ry, name, tarpCol) => {
+      const grp = new THREE.Group();
+      const woodG = new THREE.MeshLambertMaterial({ color: 0x8a5f3a });
+      const tyreG = new THREE.MeshLambertMaterial({ color: 0x181a1c });
+      const bodyG = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.05, 1.15), woodG);
+      bodyG.position.y = 0.95; bodyG.castShadow = true; grp.add(bodyG);
+      const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.09, 10);
+      for (const wz of [-0.66, 0.66]) {
+        const w = new THREE.Mesh(wheelGeo, tyreG);
+        w.rotation.x = Math.PI / 2; w.position.set(0.2, 0.42, wz); grp.add(w);
+      }
+      for (const lz of [-0.45, 0.45]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.55, 0.09), woodG);
+        leg.position.set(-0.95, 0.27, lz); grp.add(leg);
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.1, 6), woodG);
+        handle.rotation.z = 1.1; handle.position.set(-1.35, 0.75, lz); grp.add(handle);
+      }
+      for (const px of [-0.9, 0.9]) {
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.35, 6), woodG);
+        pole.position.set(px, 2.1, 0); grp.add(pole);
+      }
+      const top = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.09, 1.6),
+        new THREE.MeshLambertMaterial({ color: tarpCol }));
+      top.position.y = 2.8; top.castShadow = true; grp.add(top);
+      const faceG = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.58),
+        new THREE.MeshBasicMaterial({ map: signTexture(name, "", "#20242a", "#ffd98a"), side: THREE.DoubleSide }));
+      faceG.position.set(0, 1.62, 0.6); grp.add(faceG);
+      for (let gd = 0; gd < 3; gd++) {
+        const goods = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.4),
+          new THREE.MeshLambertMaterial({ color: [0xe63946, 0xe9c46a, 0x2a9d8f][gd] }));
+        goods.position.set(-0.7 + gd * 0.7, 1.63, 0); grp.add(goods);
+      }
+      const bulbG = new THREE.Mesh(new THREE.SphereGeometry(0.13, 6, 6), bulbMatD);
+      bulbG.position.set(0.9, 2.45, 0.3); grp.add(bulbG);
+      grp.position.set(x, 0, z); grp.rotation.y = ry;
+      this.scene.add(grp);
+      this.addCollider(x, z, 1.1, 1.1);
+    };
+    gerobak(-196, 147.5, 0.5, "SATE SENJA", 0xe67e22);        // south plaza
+    gerobak(-143, 109, -Math.PI / 2, "ES CENDOL", 0x2f6db3);  // aisle 2's east mouth
+    // -- parked motorbikes at the aisle ends --
+    const bikeCols = [0xd8493b, 0x2e7fd9, 0x37b24d];
+    let bikeN = 0;
+    const bike = (x, z, ry) => {
+      const grp = new THREE.Group();
+      const colB = new THREE.MeshLambertMaterial({ color: bikeCols[bikeN++ % 3] });
+      const tyreB = new THREE.MeshLambertMaterial({ color: 0x181a1c });
+      const wheelB = new THREE.CylinderGeometry(0.31, 0.31, 0.09, 10);
+      for (const wx of [-0.62, 0.62]) {
+        const w = new THREE.Mesh(wheelB, tyreB);
+        w.rotation.x = Math.PI / 2; w.position.set(wx, 0.31, 0); w.castShadow = true; grp.add(w);
+      }
+      const spine = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.3, 0.3), colB);
+      spine.position.y = 0.52; spine.castShadow = true; grp.add(spine);
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.13, 0.34),
+        new THREE.MeshLambertMaterial({ color: 0x22262b }));
+      seat.position.set(-0.28, 0.76, 0); grp.add(seat);
+      const shieldB = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.55, 0.3), colB);
+      shieldB.position.set(0.55, 0.62, 0); grp.add(shieldB);
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.52),
+        new THREE.MeshLambertMaterial({ color: 0x22262b }));
+      bar.position.set(0.62, 0.98, 0); grp.add(bar);
+      const lampB = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.14, 0.18),
+        new THREE.MeshBasicMaterial({ color: 0xfff6c9 }));
+      lampB.position.set(0.74, 0.8, 0); grp.add(lampB);
+      grp.position.set(x, 0, z); grp.rotation.y = ry;
+      this.scene.add(grp);
+      this.addCollider(x, z, 0.95, 0.4);
+    };
+    bike(-144.5, 96.5, 0.3);    // aisle 1, east mouth
+    bike(-144.5, 121.5, -0.4);  // aisle 3, east mouth
+    bike(-262, 148, 1.2);       // south plaza
   }
 
   buildPort(rnd) {
