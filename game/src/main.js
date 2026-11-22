@@ -337,19 +337,95 @@ function tryEnterExitCar() {
 }
 
 // ---------- combat ----------
-const tracers = [];
-const tracerMat = new THREE.LineBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.9 });
 const flash = new THREE.PointLight(0xffc46b, 0, 18);
 scene.add(flash);
 let fireTimer = 0;
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+// Gunfire visuals. A shot only reads — in play, and in any frame a
+// player might capture — if all three of its signs are big enough to
+// survive the render: a thick glowing beam, a muzzle flash orb, and a
+// fat spark burst where the round lands. The old one-pixel line
+// tracer and five grain-sized sparks vanished past spitting range, so
+// a firefight rendered as men standing still, and the cause-effect
+// line from gun to target could not be seen at all. Beams and orbs
+// are pooled and recycled like the ambient Effects pool, so the frame
+// loop never allocates for gunfire.
+const beams = [];
+let beamCursor = 0, lastBeamEnd = null;
+const beamGeo = new THREE.BoxGeometry(1, 1, 1);
+function beamPart(width, color, opacity) {
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const mesh = new THREE.Mesh(beamGeo, mat);
+  mesh.visible = false;
+  scene.add(mesh);
+  return { mesh, mat, width, baseOpacity: opacity };
+}
+for (let i = 0; i < 28; i++) beams.push({ core: beamPart(0.11, 0xffe9a8, 0.95), halo: beamPart(0.24, 0xff9d2e, 0.27), life: 0, maxLife: 1 });
+function fireBeam(a, b, hostile) {
+  const slot = beams[beamCursor]; beamCursor = (beamCursor + 1) % beams.length;
+  slot.core.mat.color.setHex(hostile ? 0xffc4b8 : 0xffe9a8);
+  slot.halo.mat.color.setHex(hostile ? 0xff4a3d : 0xff9d2e);
+  const len = Math.max(a.distanceTo(b), 0.1);
+  for (const part of [slot.core, slot.halo]) {
+    part.mesh.position.copy(a).add(b).multiplyScalar(0.5);
+    part.mesh.scale.set(part.width, part.width, len);
+    part.mesh.lookAt(b);
+    part.mat.opacity = part.baseOpacity;
+    part.mesh.visible = true;
+  }
+  slot.life = slot.maxLife = 0.16;
+  lastBeamEnd = b.clone();
+}
+// The muzzle orb: a radial-gradient sprite, additive — the glowing
+// ball of fire a real muzzle flash blooms into for a few frames.
+const flashTex = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d");
+  const grad = g.createRadialGradient(64, 64, 2, 64, 64, 64);
+  grad.addColorStop(0, "rgba(255,255,240,1)");
+  grad.addColorStop(0.25, "rgba(255,205,110,0.9)");
+  grad.addColorStop(0.6, "rgba(255,140,40,0.35)");
+  grad.addColorStop(1, "rgba(255,120,30,0)");
+  g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+const orbs = [];
+let orbCursor = 0;
+for (let i = 0; i < 10; i++) {
+  const mat = new THREE.SpriteMaterial({ map: flashTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const spr = new THREE.Sprite(mat);
+  spr.visible = false;
+  scene.add(spr);
+  orbs.push({ spr, mat, life: 0, maxLife: 1, baseScale: 1 });
+}
+function fireOrb(pos, scale, tint) {
+  const o = orbs[orbCursor]; orbCursor = (orbCursor + 1) % orbs.length;
+  o.spr.position.copy(pos);
+  o.baseScale = scale * (0.9 + Math.random() * 0.25);
+  o.spr.scale.set(o.baseScale, o.baseScale, 1);
+  o.mat.color.setHex(tint);
+  o.mat.opacity = 0.95;
+  o.spr.visible = true;
+  o.life = o.maxLife = 0.085;
+}
+// A dropped man settles flat on his back, face up, gun hand empty.
+// Tipped forward around his feet he used to come to rest half-rolled
+// and hovering, gun box jutting at an angle — clutter, not a body.
+// Flat at rest height reads instantly, from any camera.
+function settleCorpse(mesh) {
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0.22;
+  if (mesh.userData.gun) mesh.userData.gun.visible = false;
+}
 const particles = [];
 const particleGeo = new THREE.SphereGeometry(0.1, 5, 5);
-function burst(pos, color, n, spread, up) {
+function burst(pos, color, n, spread, up, size = 1, life = 0.45) {
   for (let i = 0; i < n; i++) {
     const m = new THREE.Mesh(particleGeo, new THREE.MeshBasicMaterial({ color }));
     m.position.copy(pos);
+    m.scale.setScalar(size * (0.8 + Math.random() * 0.5));
     scene.add(m);
-    particles.push({ mesh: m, vx: (Math.random() - 0.5) * spread, vy: Math.random() * up, vz: (Math.random() - 0.5) * spread, life: 0.3 + Math.random() * 0.3 });
+    particles.push({ mesh: m, vx: (Math.random() - 0.5) * spread, vy: Math.random() * up, vz: (Math.random() - 0.5) * spread, life: life * (0.7 + Math.random() * 0.6) });
   }
 }
 function shoot(dt) {
@@ -364,7 +440,10 @@ function shoot(dt) {
   const dir = new THREE.Vector3(Math.sin(camYaw + Math.PI), 0, Math.cos(camYaw + Math.PI));
   dir.x += (Math.random() - 0.5) * w.spread * 2; dir.z += (Math.random() - 0.5) * w.spread * 2;
   dir.normalize();
-  flash.position.copy(origin).addScaledVector(dir, 1.2); flash.intensity = 26;
+  if (w.id !== "fists") {
+    flash.position.copy(origin).addScaledVector(dir, 1.2); flash.intensity = 26;
+    fireOrb(flash.position, 0.95, 0xffffff);
+  }
   // Nearest hittable along the ray: hostiles, police on foot, any car.
   let bestT = w.range, hit = null;
   // The ray test must keep the ENTITY it hits, not its position vector:
@@ -380,14 +459,18 @@ function shoot(dt) {
   for (const p of peds) if (!p.dead) testPoint(p, 0.9);
   for (const c of cars) if (!c.wrecked) testPoint(c, 2.4);
   const end = origin.clone().addScaledVector(dir, bestT);
-  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([origin.clone().setY(1.45), end.setY(1.3)]), tracerMat);
-  scene.add(line); tracers.push({ line, life: 0.07 });
+  end.setY(1.3);
+  if (w.id !== "fists") {
+    const muzzle = origin.clone().addScaledVector(dir, 1.2); muzzle.y = 1.45;
+    fireBeam(muzzle, end, false);
+  }
   if (hit) {
-    burst(end, 0xffd166, 5, 3, 2.5);
+    burst(end, 0xffd166, 8, 2.2, 1.6, 1.5, 0.32);
     if (hit.health !== undefined && hit.kind === undefined) { // a person
+      fireOrb(end, 0.6, 0xffe9c4);
       hit.health -= w.damage; audio.hit();
       if (hit.health <= 0 && !hit.dead) {
-        hit.dead = true; hit.mesh.rotation.x = Math.PI / 2; hit.mesh.position.y = 0.3;
+        hit.dead = true; settleCorpse(hit.mesh);
         if (hit.hostile) commitCrime(3); else if (hit.cop) commitCrime(4); else commitCrime(3);
       } else if (hit.hostile) hit.flee = 0; else hit.flee = 5;
     } else if (hit.kind) { // a car
@@ -581,7 +664,13 @@ function updatePeds(dt) {
         if (p.shootCd <= 0) {
           p.shootCd = 0.9 + Math.random() * 0.9;
           audio.shoot("smg");
-          burst(new THREE.Vector3(fp.x, 1.2, fp.z), 0xff6b81, 2, 2, 1.5);
+          // Return fire wears the same signs as the player's — an orb
+          // at his muzzle and a beam to the man he is shooting at —
+          // so a two-way fight reads from either side.
+          const muzzle = new THREE.Vector3(-0.42, 1.35, 0.35).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
+          fireOrb(muzzle, 0.8, 0xffc9b0);
+          fireBeam(muzzle, new THREE.Vector3(fp.x, 1.3, fp.z), true);
+          burst(new THREE.Vector3(fp.x, 1.2, fp.z), 0xff6b81, 5, 2, 1.5, 1.6);
           if (S.inCar) damageCar(S.inCar, 2, null); else hurtPlayer(4);
         }
       }
@@ -606,7 +695,7 @@ function updatePeds(dt) {
     animatePerson(p.mesh, p.phase, move);
     // Run over by the player's car.
     if (S.inCar && Math.abs(S.inCar.speed) > 6 && dist2d(p.pos, S.inCar.pos) < 2.4) {
-      p.dead = true; p.mesh.rotation.x = Math.PI / 2; p.mesh.position.y = 0.3;
+      p.dead = true; settleCorpse(p.mesh);
       commitCrime(3); audio.crash(0.4);
     }
   }
@@ -914,7 +1003,7 @@ if (STAGE) {
   stageScene(STAGE, api);
   // Staging-only inspection handle for the screenshot tooling: lets the
   // capture scripts verify the posed state (never set in normal play).
-  window.__senjaDebug = { peds, cars, player, state: S, get camYaw() { return camYaw; }, get flashI() { return flash.intensity; }, get flashPos() { return { x: +flash.position.x.toFixed(2), z: +flash.position.z.toFixed(2) }; }, get tracerEnd() { const t = tracers[tracers.length - 1]; if (!t) return null; const a = t.line.geometry.attributes.position; return { x: +a.getX(1).toFixed(2), z: +a.getZ(1).toFixed(2) }; } };
+  window.__senjaDebug = { peds, cars, player, state: S, get camYaw() { return camYaw; }, get flashI() { return flash.intensity; }, get flashPos() { return { x: +flash.position.x.toFixed(2), z: +flash.position.z.toFixed(2) }; }, get tracerEnd() { return lastBeamEnd ? { x: +lastBeamEnd.x.toFixed(2), z: +lastBeamEnd.z.toFixed(2) } : null; } };
   // Let the posed scene settle, then tell the screenshot tool we are ready.
   setTimeout(() => { window.__senjaReady = true; }, 1400);
 }
@@ -958,9 +1047,25 @@ function frame(now) {
     activities.update(dt, { x: focusPos().x, z: focusPos().z, inCar: !!S.inCar });
     // Slow health regen when calm and unmolested.
     if (S.wanted === 0 && S.health > 0 && S.health < 100) S.health = Math.min(100, S.health + dt * 1.2);
-    // Tracers & particles & flash decay.
+    // Gunfire visuals & particles & flash decay.
     flash.intensity = Math.max(0, flash.intensity - dt * 300);
-    for (let i = tracers.length - 1; i >= 0; i--) { tracers[i].life -= dt; if (tracers[i].life <= 0) { scene.remove(tracers[i].line); tracers.splice(i, 1); } }
+    for (const slot of beams) {
+      if (slot.life <= 0) continue;
+      slot.life -= dt;
+      const k = Math.max(slot.life, 0) / slot.maxLife;
+      slot.core.mat.opacity = slot.core.baseOpacity * k;
+      slot.halo.mat.opacity = slot.halo.baseOpacity * k;
+      if (slot.life <= 0) { slot.core.mesh.visible = false; slot.halo.mesh.visible = false; }
+    }
+    for (const o of orbs) {
+      if (o.life <= 0) continue;
+      o.life -= dt;
+      const k = Math.max(o.life, 0) / o.maxLife;
+      o.mat.opacity = 0.95 * k;
+      const s = o.baseScale * (0.7 + 0.3 * k);
+      o.spr.scale.set(s, s, 1);
+      if (o.life <= 0) o.spr.visible = false;
+    }
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i]; p.life -= dt;
       p.mesh.position.x += p.vx * dt; p.mesh.position.y += p.vy * dt; p.mesh.position.z += p.vz * dt;

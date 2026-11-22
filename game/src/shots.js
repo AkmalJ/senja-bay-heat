@@ -30,81 +30,118 @@ export function stageScene(name, api) {
       break;
     }
     case "market": {
-      // On-foot combat INSIDE the night market, staged for READABILITY:
-      // full night (21.6) so the muzzle light, tracers and hit sparks
-      // carry against the dark, and the whole fight pulled in tight
-      // around Raka in the z=143 aisle, the lit z=126 stall fronts
-      // as the backdrop. Raka fills the lower-centre foreground
-      // from the game's own follow camera.
-      // FIREFIGHT GEOMETRY (placeOnFoot heading 3π/4, so the SMG
-      // ray runs (+0.707, -0.707) out of (-238, 141.5); screen-
-      // right along the ray is (+0.707, +0.707)). Every placement
-      // below is dictated by how the dead actually fall in this
-      // game — measured, not guessed: a dropped man tips forward
-      // around his feet and comes to rest lying along world +Z
-      // from where he stood (bounding box ~2.0 m in Z, ~1.1 m in
-      // X, top edge ~0.75 m up, whatever he was facing). Two
-      // consequences. First, the fight runs NE at 45°, never due
-      // north: pointing at the camera, a corpse foreshortens
-      // into a blob behind Raka's legs; across the view, the
-      // same corpse stretches over the mats where a body reads
-      // as a body. (The stall signs, which face +Z, still read
-      // at 45° — the ES KELAPA stall stands on the ray itself.)
-      // Second, the first kill stands FAR down the ray: his
-      // corpse reaches ~1.4 m back toward Raka and ~1.4 m to
-      // screen-right of where he stood, so a man dropped at
-      // spitting distance ends up sprawled across Raka's gun
-      // arm, masquerading as part of it. Dropped at 5 m, the
-      // body lands clear of the silhouette, in the open.
-      //   A (-234.0, 138.4) — 5.0 m down the ray, 0.6 m screen-
-      //     right of it: the first kill. His corpse comes to rest
-      //     at (t≈3.6–5.0, s≈0.6–2.0), fully clear of Raka's
-      //     outline, muzzle light raking it every time the gun
-      //     fires past him — and it lands on the TEAL runner
-      //     (x −241.8…−229.2), not the burgundy one the fight
-      //     used to sit on: a dark purple body on dark red
-      //     pattern is camouflage, on teal it stands out. The
-      //     whole fight shifted one mat east for that contrast;
-      //     the backdrop sign on the ray is now ES KELAPA.
-      //   B (-232.3, 136.5) — 7.6 m down the ray, 0.5 m screen-
-      //     right: the second kill, and the live target while A
-      //     is going down, his burst stacking over A's body. The
-      //     offset matters for the living too — dead-centre on
-      //     the ray he hides behind Raka's silhouette and only
-      //     his head peeks over it, sparks and all; half a metre
-      //     to the side, his shoulder, gun arm and the burst on
-      //     his chest clear Raka's outline. His corpse reaches
-      //     back onto the same teal runner.
-      //   C (-230.8, 133.9) — 10.5 m down the ray, a step
-      //     screen-left: the next man in line, depth behind B,
-      //     already returning fire — once B drops, the fire
-      //     walks on to him.
-      //   D (-234.4, 133.1) — off the line by the stall fronts,
-      //     screen-left: trades shots with Raka the whole time
-      //     (his hits land as red bursts on Raka — the game's real
-      //     hostile fire, nothing posed).
-      // The capture tool holds the trigger on the real shoot() and
-      // picks from the frames where tracers, spark bursts and the
-      // downed men share the frame. Clock 21.6, not 20.2: at 20.2
-      // the dusk band still floats the whole scene up into evening
-      // blue and the firelight drowns in it — 21.6 is past the band,
-      // true night, when the market's own signs and string lights
-      // (all unlit materials) take over the frame and every tracer
-      // and spark stands out against the dark.
+      // On-foot combat INSIDE the night market, staged for CLEAN
+      // FIREFIGHT GEOMETRY. The previous frame failed on geometry,
+      // not content: the camera sat dead behind Raka so his firing
+      // side was hidden, his target stood directly behind his
+      // silhouette so only the spark column showed above his head,
+      // and two dropped men lay half-rolled beside him with their
+      // gun boxes jutting at matching angles — clutter, not story.
+      // This staging fixes the geometry itself:
+      //   * LOW, CLOSE, DOWN THE AISLE. The reference frames for
+      //     this competition shoot their fights from shoulder
+      //     height, tight behind the player, the corridor
+      //     vanishing ahead — while this game's default follow
+      //     camera floats high and far and shrinks every effect
+      //     in the scene. So the capture tool drags the pitch
+      //     most of the way to the game's own floor (camPitch
+      //     ≈0.17 against the 0.06 floor the mouse-orbit allows:
+      //     camera ≈3.0 m up, Raka filling the lower third — the
+      //     last step down was tried and a flat corpse on the
+      //     aisle goes edge-on and vanishes at the full floor)
+      //     and setCamOffset(0.35) holds a
+      //     slight over-the-shoulder angle, enough that the
+      //     muzzle orb and the beam's first metre clear his
+      //     silhouette. Nothing here exceeds what a player's own
+      //     mouse can do in normal play. In this game the shot
+      //     flies along the camera's forward — heading +
+      //     camOffset — so with Raka placed at heading 3π/4 the
+      //     ray runs fwd(3π/4 + 0.35) ≈ (0.42, −0.91): up the
+      //     aisle, stall fronts and their south-facing signs as
+      //     the backdrop.
+      //   * ONE MAN DOWN, FLAT, CENTRE-AISLE — AND ONE STILL
+      //     STANDING UNDER THE BEAM. The near Kerang Boy stands
+      //     on the ray 3.0 m out and takes the capture's first
+      //     four hits (60 hp, 15 a hit): he dies and settles flat
+      //     on his back along the aisle (the game's corpse settle
+      //     lays him toward −Z, head away from Raka, gun hand
+      //     empty), directly under the line of fire. The far man
+      //     stands on the same ray 6.4 m out; once the near man is
+      //     down the fire walks over the body onto him, and the
+      //     capture cuts the trigger after two hits with him
+      //     still on his feet — beam over the corpse, burst on
+      //     the standing man's torso, cause and effect in one
+      //     glance. One body is a story; the two half-rolled
+      //     corpses of the failed frame were clutter because the
+      //     old settle left them hovering with their gun boxes
+      //     jutting — flat and alone, a body reads as a body.
+      //   * ONE WINGMAN off the ray, well east of the far man
+      //     (perpendicular distance ~4.4 — the ray test can never
+      //     pick him), for gang context outside the sightline.
+      //   * A LIVING AISLE. Sixteen shoppers crowd the corridor —
+      //     browsing the stall fronts, walking the mid-aisle, a
+      //     pair deep at the east end — because a night market
+      //     with four figures in it reads as a film set, not a
+      //     market. Three of them stand inside the panic radius
+      //     (under 6 m from Raka, wanted already 2) and are
+      //     already fleeing across the frame's edges when the
+      //     shooting starts: the game's own behaviour, staged by
+      //     placement alone. Every shopper stands clear of the
+      //     sightline corridor (checked >1.6 m off the ray), so
+      //     the crowd fills the sides and the depth while the
+      //     beam, the body and the target stay readable.
+      // Full night 21.6, past the dusk band, when the market's
+      // own signs and string lights take over the frame and every
+      // beam and spark stands out against the dark.
       api.setClock(21.6);
       api.setStats({ money: 7270, respect: 940, health: 100, armor: 80 });
       api.startJobAt(1, 1);                    // clear-the-aisles stage (spawns hostiles)
-      api.placeOnFoot(-238, 141.5, Math.PI * 0.75); // on the teal runner, facing NE across the aisle
-      api.setCamOffset(0);
-      // Kerang Boys on and around the firing line, in SMG range.
-      api.addPed(-234.0, 138.4, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-232.3, 136.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-230.8, 133.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-234.4, 133.1, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      // Shoppers kept south and west of the fight, out of the line.
-      api.addPed(-244, 138, {});
-      api.addPed(-233, 149, {});
-      api.addPed(-227, 149.5, {});
+      api.placeOnFoot(-238, 140.0, Math.PI * 0.75); // at the teal runner's north edge, facing NE across the aisle
+      api.setCamOffset(0.35);
+      // The fight, all of it on the ray fwd(3π/4 + 0.35) ≈
+      // (0.42, −0.91) out of (-238, 140): the near man 3.0 m out
+      // at (-236.7, 137.3) — he is the kill, and his body settles
+      // flat across the mat's north edge under the beam (close
+      // enough that even edge-on at the low camera his footprint
+      // reads — a flat body 9 m out in the dark nearly vanishes).
+      // He wears the gang purple without the vest: face-up on
+      // dark earth, the bare shirt is what keeps his body
+      // readable — the near-black vest swallowed him whole;
+      // the far man 6.4 m out at (-235.3, 134.2) — he is the
+      // standing target the beam lands on. His wingman stands
+      // well east of the line, a separate figure in his own
+      // space, never a twin beside the target and never on the ray.
+      api.addPed(-236.7, 137.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(-235.3, 134.2, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-231.8, 134.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // The crowd. api.addPed returns the ped, and pinning its
+      // wander speed is what keeps a browser browsing his stall
+      // for the whole capture: the game's shoppers walk at up to
+      // 3 m/s and think nothing of crossing a gunfight — the
+      // first crowded take lost its target behind a wanderer who
+      // strolled into the sightline and stood there.
+      const shopper = (x, z, speed) => { const p = api.addPed(x, z, {}); if (p) p.speed = speed; };
+      // Browsers along the north stall fronts, shuffling locally:
+      shopper(-247, 130.5, 0.35);
+      shopper(-243.5, 129.8, 0.35);
+      shopper(-240, 130.8, 0.35);
+      shopper(-232.5, 129.3, 0.35);
+      shopper(-228.5, 129.6, 0.35);
+      shopper(-225.5, 130.4, 0.35);
+      // Walkers in the mid-aisle, west and east of the corridor:
+      shopper(-249, 134.5, 0.9);
+      shopper(-245.5, 136.5, 0.9);
+      shopper(-226.5, 138.5, 0.9);
+      shopper(-224.5, 135, 0.9);
+      shopper(-231.5, 139.5, 0.7);
+      // A pair deep at the east end, for depth:
+      shopper(-220.5, 132.5, 0.5);
+      shopper(-219.3, 133.8, 0.5);
+      // Reactors inside the panic radius — already running when
+      // the first shot lands, across the frame's edges:
+      api.addPed(-243.2, 138.2, {});
+      api.addPed(-241.8, 135.8, {});
+      api.addPed(-233.8, 143.2, {});
       // A shopper's scooter parked at the aisle's edge east of the
       // fight, and one of the bay's hidden packages glowing further
       // down it (only the beach and pier packages are marked found,
@@ -115,7 +152,7 @@ export function stageScene(name, api) {
       api.selectWeapon("smg");
       api.setWanted(2, true);
       api.spawnFootPack(2);
-      api.dialogue("Laras", "LOOKOUT — CREW", "They're dropping in the aisle! Keep firing, Raka — the rest are pinned by the stalls!");
+      api.dialogue("Laras", "LOOKOUT — CREW", "One down in the aisle! Keep firing, Raka — drop the rest before they flank the stalls!");
       break;
     }
     case "port": {
