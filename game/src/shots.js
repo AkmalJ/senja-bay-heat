@@ -37,14 +37,28 @@ export function stageScene(name, api) {
       // aisle floor is dressed now — runner mats underfoot, goods piled
       // at both stall fronts, string lights sagging overhead — and Raka
       // stands closer to the lit row so the stalls loom over the frame.
+      // FIREFIGHT STAGING: the four Kerang Boys below stand ON Raka's
+      // firing line (placeOnFoot heading 2.65, so his SMG ray runs
+      // (+0.472, -0.881) from (-246, 141.5)) at 4.2 m, 6.2 m, 8.2 m and
+      // 10.5 m, the middle two offset half a metre to alternating sides
+      // so their bodies stagger across the aisle instead of stacking
+      // behind Raka's silhouette. The capture tool holds the trigger:
+      // the first three go down on the mats, the fourth is still
+      // standing in the line of fire with hit sparks on him and the
+      // muzzle flash lit at Raka's hands, while a fifth Kerang Boy off
+      // the line returns fire. Nothing is faked — it is the game's
+      // real shoot() resolved frame by frame.
       api.setClock(19.3);
       api.setStats({ money: 7270, respect: 940, health: 95, armor: 27 });
       api.startJobAt(1, 1);                    // clear-the-aisles stage (spawns hostiles)
       api.placeOnFoot(-246, 141.5, 2.65);      // in the aisle, facing NE into the stall row
       api.setCamOffset(0);
-      // Kerang Boys posted in the aisle, already in SMG range of Raka.
-      api.addPed(-237.5, 134, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-240, 136.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // Kerang Boys on the firing line, in SMG range of Raka.
+      api.addPed(-244, 137.8, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-243.5, 135.8, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-241.7, 134.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-241, 132.2, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // A fourth Kerang Boy off the line, trading shots with Raka.
       api.addPed(-234.5, 138.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // Shoppers threading the aisle between the lit stalls.
       api.addPed(-252, 137.5, {});
@@ -61,7 +75,7 @@ export function stageScene(name, api) {
       api.selectWeapon("smg");
       api.setWanted(2, true);
       api.spawnFootPack(2);
-      api.dialogue("Laras", "LOOKOUT — CREW", "Two down the left aisle! I've got the stall side, Raka.");
+      api.dialogue("Laras", "LOOKOUT — CREW", "They're dropping in the aisle! Keep firing, Raka — the rest are pinned by the stalls!");
       break;
     }
     case "port": {

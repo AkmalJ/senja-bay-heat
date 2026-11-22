@@ -367,15 +367,18 @@ function shoot(dt) {
   flash.position.copy(origin).addScaledVector(dir, 1.2); flash.intensity = 26;
   // Nearest hittable along the ray: hostiles, police on foot, any car.
   let bestT = w.range, hit = null;
-  const testPoint = (p, r) => {
-    const to = new THREE.Vector3(p.x - origin.x, 0, p.z - origin.z);
+  // The ray test must keep the ENTITY it hits, not its position vector:
+  // the damage branches below read hit.health / hit.kind, which a bare
+  // Vector3 never has — passing p.pos here made every shot cosmetic.
+  const testPoint = (e, r) => {
+    const to = new THREE.Vector3(e.pos.x - origin.x, 0, e.pos.z - origin.z);
     const t = to.dot(dir);
     if (t < 0 || t > bestT) return;
     const perp = Math.abs(to.x - dir.x * t) + Math.abs(to.z - dir.z * t);
-    if (perp < r) { bestT = t; hit = p; }
+    if (perp < r) { bestT = t; hit = e; }
   };
-  for (const p of peds) if (!p.dead) testPoint(p.pos, 0.9);
-  for (const c of cars) if (!c.wrecked) testPoint(c.pos, 2.4);
+  for (const p of peds) if (!p.dead) testPoint(p, 0.9);
+  for (const c of cars) if (!c.wrecked) testPoint(c, 2.4);
   const end = origin.clone().addScaledVector(dir, bestT);
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([origin.clone().setY(1.45), end.setY(1.3)]), tracerMat);
   scene.add(line); tracers.push({ line, life: 0.07 });
@@ -909,6 +912,9 @@ if (STAGE) {
   document.getElementById("hud").style.display = "block";
   S.mode = "play";
   stageScene(STAGE, api);
+  // Staging-only inspection handle for the screenshot tooling: lets the
+  // capture scripts verify the posed state (never set in normal play).
+  window.__senjaDebug = { peds, cars, player, state: S, get camYaw() { return camYaw; }, get flashI() { return flash.intensity; }, get flashPos() { return { x: +flash.position.x.toFixed(2), z: +flash.position.z.toFixed(2) }; }, get tracerEnd() { const t = tracers[tracers.length - 1]; if (!t) return null; const a = t.line.geometry.attributes.position; return { x: +a.getX(1).toFixed(2), z: +a.getZ(1).toFixed(2) }; } };
   // Let the posed scene settle, then tell the screenshot tool we are ready.
   setTimeout(() => { window.__senjaReady = true; }, 1400);
 }
