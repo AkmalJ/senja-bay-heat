@@ -20,18 +20,58 @@ function box(w, h, d, mat, x, y, z, parent) {
 
 export function buildCarMesh(model, opts = {}) {
   const g = new THREE.Group();
+  if (model.name.includes("Scooter")) {
+    // A step-through scooter: two thin wheels, a floor spine, a leg
+    // shield, a long seat and a handlebar with a single round headlight.
+    const bodyMat = new THREE.MeshLambertMaterial({ color: opts.color ?? model.color });
+    const hlS = new THREE.MeshBasicMaterial({ color: 0xfff6c9 });
+    const tlS = new THREE.MeshBasicMaterial({ color: 0xff3b30 });
+    box(1.15, 0.16, 0.34, bodyMat, -0.1, 0.42, 0, g);
+    box(0.5, 0.52, 0.3, bodyMat, 0.62, 0.74, 0, g);
+    box(0.74, 0.16, 0.4, MAT.black, -0.42, 0.8, 0, g);
+    box(0.32, 0.36, 0.36, bodyMat, -0.98, 0.64, 0, g);
+    box(0.1, 0.44, 0.1, MAT.chrome, 0.72, 1.06, 0, g);
+    box(0.08, 0.08, 0.62, MAT.black, 0.72, 1.3, 0, g);
+    box(0.14, 0.2, 0.24, hlS, 0.84, 1.04, 0, g);
+    box(0.08, 0.12, 0.2, tlS, -1.14, 0.74, 0, g);
+    const wheels = [];
+    const wgS = new THREE.CylinderGeometry(0.34, 0.34, 0.14, 12);
+    const rgS = new THREE.CylinderGeometry(0.18, 0.18, 0.16, 10);
+    const rimMatS = new THREE.MeshLambertMaterial({ color: 0xe9eef3 });
+    for (const wx of [0.8, -0.88]) {
+      const w = new THREE.Mesh(wgS, MAT.tyre);
+      w.rotation.x = Math.PI / 2; w.position.set(wx, 0.34, 0); w.castShadow = true;
+      g.add(w); wheels.push(w);
+      const rim = new THREE.Mesh(rgS, rimMatS);
+      rim.rotation.x = Math.PI / 2; rim.position.set(wx, 0.34, 0); g.add(rim);
+    }
+    g.userData.wheels = wheels;
+    g.userData.length = 2.1;
+    return g;
+  }
   const bodyMat = new THREE.MeshLambertMaterial({ color: opts.color ?? model.color });
   const trimMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(opts.color ?? model.color).multiplyScalar(0.68) });
   const isVan = model.name.includes("Van");
   const isPickup = model.name.includes("Pickup");
+  const isTruck = model.name.includes("Truck");
   const isSport = model.name.includes("GT") || model.name.includes("Coupe");
-  const L = isVan ? 5.6 : 4.6, W = 2.0;
+  const L = isTruck ? 7.4 : isVan ? 5.6 : 4.6, W = isTruck ? 2.3 : 2.0;
   const hl = new THREE.MeshBasicMaterial({ color: 0xfff6c9 });
   const tl = new THREE.MeshBasicMaterial({ color: 0xff3b30 });
   const plateMat = new THREE.MeshBasicMaterial({ color: 0xf2f4f6 });
   const rimMat = new THREE.MeshLambertMaterial({ color: 0xe9eef3 });
 
-  if (isVan) {
+  if (isTruck) {
+    // A cab up front and a tall cargo box behind it: the box rides higher
+    // than the cab roof and wears a body-colour stripe down its flank.
+    box(1.9, 1.5, W, bodyMat, L / 2 - 0.95, 1.25, 0, g);
+    box(1.7, 0.62, W * 0.92, MAT.glass, L / 2 - 1.0, 1.66, 0, g);
+    box(L * 0.64, 2.5, W * 0.98, new THREE.MeshLambertMaterial({ color: 0xf0ead8 }), -L * 0.17, 1.78, 0, g);
+    box(L * 0.64, 0.34, W * 0.99, bodyMat, -L * 0.17, 1.95, 0, g);
+    box(L * 0.97, 0.16, W + 0.03, trimMat, 0, 0.42, 0, g);
+    box(0.14, 0.2, 0.36, MAT.black, L / 2 - 0.45, 1.72, W / 2 + 0.1, g);
+    box(0.14, 0.2, 0.36, MAT.black, L / 2 - 0.45, 1.72, -W / 2 - 0.1, g);
+  } else if (isVan) {
     // One tall box, broken up: a glasshouse band, a windshield block, a
     // sliding-door panel in darker trim and the angkot's white stripe.
     box(L, 1.62, W, bodyMat, 0, 1.36, 0, g);
@@ -77,7 +117,7 @@ export function buildCarMesh(model, opts = {}) {
     }
   }
   // Headlights, tail lights, bumpers, license plates and an exhaust.
-  const hlY = isVan ? 1.0 : 0.8, tlY = isVan ? 1.05 : 0.84;
+  const hlY = (isVan || isTruck) ? 1.0 : 0.8, tlY = (isVan || isTruck) ? 1.05 : 0.84;
   box(0.12, 0.22, 0.5, hl, L / 2 + 0.03, hlY, 0.55, g);
   box(0.12, 0.22, 0.5, hl, L / 2 + 0.03, hlY, -0.55, g);
   box(0.12, 0.2, 0.5, tl, -L / 2 - 0.03, tlY, 0.55, g);

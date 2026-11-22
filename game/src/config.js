@@ -33,6 +33,8 @@ export const CAR_MODELS = [
   { name: "Angkot Van", top: 27, accel: 19, grip: 0.88, color: 0x37b24d },
   { name: "Taksi Senja", top: 36, accel: 25, grip: 0.93, color: 0xf5c518 },
   { name: "Bemo Pickup", top: 30, accel: 21, grip: 0.9, color: 0x9b59d0 },
+  { name: "Senja Scooter", top: 31, accel: 27, grip: 0.9, color: 0xe9c46a },
+  { name: "Kargo Box Truck", top: 26, accel: 16, grip: 0.86, color: 0xe8e4da },
 ];
 
 export const CREW = [

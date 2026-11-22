@@ -88,7 +88,8 @@ export function buildSky(scene, rnd) {
   const g = c.getContext("2d");
   const grad = g.createLinearGradient(0, 0, 0, 256);
   grad.addColorStop(0, "#3d7ac2"); grad.addColorStop(0.45, "#79aede");
-  grad.addColorStop(0.75, "#cfe3ee"); grad.addColorStop(1, "#f6d9a8");
+  grad.addColorStop(0.68, "#bcd6ea"); grad.addColorStop(0.82, "#f2cf9e");
+  grad.addColorStop(0.93, "#ffb37a"); grad.addColorStop(1, "#ff9a5c");
   g.fillStyle = grad; g.fillRect(0, 0, 4, 256);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const domeMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false });
@@ -99,6 +100,7 @@ export function buildSky(scene, rnd) {
     new THREE.MeshBasicMaterial({ color: 0xfff2c0, fog: false }));
   sunDisc.position.set(-420, 300, -900); sunDisc.lookAt(0, 60, 0);
   scene.add(sunDisc);
+  dome.userData.sunDisc = sunDisc;
   const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.92 });
   for (let i = 0; i < 16; i++) {
     const cloud = new THREE.Group();
@@ -127,6 +129,7 @@ export class City {
     this.skyDome = buildSky(scene, rnd);
     this.buildGround(rnd);
     this.buildRoads(rnd);
+    this.buildStreetDressing(rnd);
     this.buildBlocks(rnd);
     this.buildStrand(rnd);
     this.buildMarket(rnd);
@@ -190,6 +193,41 @@ export class City {
         const dash2 = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.5), dashMat);
         dash2.rotation.x = -Math.PI / 2; dash2.position.set(d, 0.1, l); this.scene.add(dash2);
       }
+    }
+  }
+
+  buildStreetDressing(rnd) {
+    // Painted street furniture: zebra crosswalks on every intersection
+    // approach and the divider ticks of the kerbside parking bays along
+    // the strand and the downtown avenue (main.js parks real cars in them).
+    const paint = new THREE.MeshBasicMaterial({ color: 0xf5f2e8, transparent: true, opacity: 0.85 });
+    const unit = new THREE.PlaneGeometry(1, 1);
+    const stripe = (x, z, w, d) => {
+      const m = new THREE.Mesh(unit, paint);
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(x, 0.09, z);
+      m.scale.set(w, d, 1);
+      this.scene.add(m);
+    };
+    const rh = WORLD.roadHalf;
+    for (const lx of roadLines()) for (const lz of roadLines()) {
+      // Bands just outside the junction box, stripes laid across the road.
+      for (const s of [-1, 1]) {
+        for (let k = -2; k <= 2; k++) {
+          stripe(lx + k * 3.75, lz + s * (rh + 2.4), 1.7, 3.4);   // across the vertical road
+          stripe(lx + s * (rh + 2.4), lz + k * 3.75, 3.4, 1.7);   // across the horizontal road
+        }
+      }
+    }
+    // Parking bay ticks: a short line every bay along both kerbs.
+    for (let z = -273; z <= 273; z += 7.8) {
+      stripe(276, z, 3.2, 0.24);
+      stripe(294, z, 3.2, 0.24);
+    }
+    for (let x = -266; x <= 266; x += 7.8) {
+      if (Math.abs(x) < 20) continue;   // the downtown junction stays clear
+      stripe(x, -9.4, 0.24, 3.2);
+      stripe(x, 9.4, 0.24, 3.2);
     }
   }
 
@@ -329,6 +367,19 @@ export class City {
     boatAt(436, 196, 0.9, 0x2e7fd9);
     boatAt(528, -30, -0.7, 0xf2b13c);
     boatAt(410, 104, 0.2, 0x37b24d, 0.72);
+    // Two of the fleet are under way, not anchored: main.js walks them
+    // around a slow circuit, and each trails a flat foam wake ring.
+    const wakeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, depthWrite: false });
+    const setUnderway = (boat, r, sp, a) => {
+      boat.userData.orbit = { x: boat.position.x, z: boat.position.z, r, sp, a };
+      const wake = new THREE.Mesh(new THREE.RingGeometry(3.1, 5.2, 22), wakeMat);
+      wake.rotation.x = -Math.PI / 2;
+      wake.position.y = 0.14;
+      boat.add(wake);
+      boat.userData.wake = wake;
+    };
+    setUnderway(this.boats[1], 16, 0.045, 1.3);
+    setUnderway(this.boats[3], 12, -0.055, 0.4);
   }
 
   buildMarket(rnd) {

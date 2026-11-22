@@ -11,6 +11,7 @@ import { buildCarMesh, buildPersonMesh, animatePerson, buildHelicopterMesh, buil
 import { HUD } from "./hud.js";
 import { GameAudio } from "./audio.js";
 import { MissionRunner } from "./missions.js";
+import { Effects } from "./effects.js";
 import { stageScene } from "./shots.js";
 
 const params = new URLSearchParams(location.search);
@@ -43,10 +44,13 @@ sun.shadow.mapSize.set(2048, 2048);
 sun.shadow.camera.left = -120; sun.shadow.camera.right = 120;
 sun.shadow.camera.top = 120; sun.shadow.camera.bottom = -120;
 sun.shadow.camera.far = 600;
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.5;
 scene.add(sun); scene.add(sun.target);
 const city = new City(scene);
 const hud = new HUD();
 const audio = new GameAudio();
+const fx = new Effects(scene);
 
 // ---------- game state ----------
 const S = {
@@ -89,6 +93,26 @@ function addHeadlightPool(car) {
   car.mesh.add(p);
   car.pool = p;
 }
+// Headlight cones: translucent additive beams that fade in with the same
+// darkness value as the pools, so a car at dusk throws real light shapes
+// down the road instead of just a disc on the asphalt.
+const coneMat = new THREE.MeshBasicMaterial({ color: 0xffedb5, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+const coneGeo = new THREE.ConeGeometry(1.7, 7.5, 14, 1, true);
+function addHeadlightCones(car) {
+  if (car.cones) return;
+  car.cones = [];
+  const len = car.mesh.userData.length || 4.6;
+  const scooter = car.model.name.includes("Scooter");
+  for (const cz of scooter ? [0] : [0.55, -0.55]) {
+    const cone = new THREE.Mesh(coneGeo, coneMat);
+    // The cone's axis runs +Y apex-up; rotate it to lie along the car's
+    // nose (+X), dipped a few degrees so the beam lands on the road.
+    cone.rotation.z = Math.PI / 2 - 0.09;
+    cone.position.set(len / 2 + 3.6, scooter ? 0.95 : 0.78, cz);
+    car.mesh.add(cone);
+    car.cones.push(cone);
+  }
+}
 function spawnCar(modelIdx, x, z, heading, kind, opts = {}) {
   const model = CAR_MODELS[modelIdx % CAR_MODELS.length];
   const mesh = buildCarMesh(model, { police: kind === "police", taxi: model.name.includes("Taksi"), color: opts.color });
@@ -101,13 +125,38 @@ function spawnCar(modelIdx, x, z, heading, kind, opts = {}) {
     pos: mesh.position, shooterCd: 0,
   };
   if (kind === "traffic") { car.dir = Math.cos(heading) + Math.sin(heading) > 0 ? 1 : -1; car.speed = 9 + Math.random() * 5; }
-  if (kind === "police") addHeadlightPool(car);
+  if (kind === "police") { addHeadlightPool(car); addHeadlightCones(car); }
   cars.push(car);
   return car;
 }
 // Parked cars around the bay, plus the orange Pelo the first job is about.
 const parkedSpots = [[268, -95, 2, Math.PI / 2], [120, 12, 0, 0], [-40, -190, 1, 0], [200, 100, 3, Math.PI / 2], [-230, -60, 4, 0], [60, 230, 5, Math.PI / 2], [-120, 40, 0, 0], [310, 120, 1, Math.PI / 2], [-280, 200, 2, 0], [30, -280, 3, 0]];
 for (const [x, z, m, h] of parkedSpots) spawnCar(m, x, z, h, "parked", m === 2 ? { color: 0xf06423 } : {});
+// Kerbside bays, filled: both edges of the strand road and the downtown
+// avenue wear rows of parked cars, scooters tucked between them, so the
+// streets read lived-in from any camera. (Model indices: 6 = scooter,
+// 7 = box truck — appended last in CAR_MODELS so the old indices hold.)
+const bayModels = [0, 1, 3, 4, 5, 0, 4, 1];
+let bayK = 0;
+for (let z = -258, i = 0; z <= 258; z += 30, i++) {
+  const nearJunction = Math.abs(z % 95) < 15 || Math.abs(z % 95) > 80;
+  if (nearJunction) continue;   // keep junction mouths clear
+  spawnCar(bayModels[bayK++ % bayModels.length], 276, z, 0, "parked");
+  if (i % 2 === 0) spawnCar(bayModels[bayK++ % bayModels.length], 294, z + 8, Math.PI, "parked");
+  else spawnCar(6, 294, z + 8, Math.PI, "parked");
+}
+for (let x = -240; x <= 240; x += 30) {
+  if (Math.abs(x) < 30 || Math.abs(x - 95) < 15 || Math.abs(x + 95) < 15 || Math.abs(x - 190) < 15 || Math.abs(x + 190) < 15) continue;
+  spawnCar(bayModels[bayK++ % bayModels.length], x, -9.5, Math.PI / 2, "parked");
+  if (x % 60 === 0) spawnCar(bayModels[bayK++ % bayModels.length], x + 14, 9.5, -Math.PI / 2, "parked");
+}
+// Working vehicles where they belong: box trucks on the port apron,
+// scooters by the market and the hills.
+spawnCar(7, 150, 205, 0.3, "parked");
+spawnCar(7, 255, 228, -0.4, "parked");
+spawnCar(6, -160, 152, 1.2, "parked");
+spawnCar(6, -238, -256, 0.7, "parked");
+spawnCar(6, 297, -120, Math.PI, "parked");
 // Rolling traffic.
 for (let i = 0; i < 18; i++) {
   const lines = roadLines();
@@ -271,6 +320,7 @@ function tryEnterExitCar() {
   if (best.kind === "parked" && best.model.name === "Pelo GT" && missions.index === 0 && missions.stage === 0) commitCrime(2);
   best.kind = "player";
   addHeadlightPool(best);
+  addHeadlightCones(best);
   S.inCar = best;
   playerMesh.visible = false;
   audio.unlock();
@@ -576,6 +626,7 @@ function updateTarget(dt) {
 }
 
 // ---------- player movement & driving ----------
+let smokeAcc = 0;
 function updatePlayer(dt) {
   if (S.inCar) {
     const car = S.inCar;
@@ -593,7 +644,7 @@ function updatePlayer(dt) {
     const f = fwd(car.heading);
     let nx = car.pos.x + f.x * car.speed * dt, nz = car.pos.z + f.z * car.speed * dt;
     const [cx, cz] = city.collide(nx, nz, 2.2);
-    if ((cx !== nx || cz !== nz) && Math.abs(car.speed) > 9) { damageCar(car, Math.abs(car.speed) * 0.35, null); audio.crash(0.5); car.speed *= -0.25; }
+    if ((cx !== nx || cz !== nz) && Math.abs(car.speed) > 9) { damageCar(car, Math.abs(car.speed) * 0.35, null); fx.dustPuff(car.pos.x, 0.6, car.pos.z, Math.abs(car.speed) > 16); audio.crash(0.5); car.speed *= -0.25; }
     else { car.pos.x = cx; car.pos.z = cz; }
     // Car-to-car bumps.
     for (const o of cars) {
@@ -603,11 +654,27 @@ function updatePlayer(dt) {
         const push = (3.6 - d) / 2;
         const dx = (o.pos.x - car.pos.x) / d, dz = (o.pos.z - car.pos.z) / d;
         o.pos.x += dx * push; o.pos.z += dz * push;
-        if (Math.abs(car.speed) > 8) { damageCar(o, Math.abs(car.speed) * 0.4, null); if (o === targetCar) commitCrime(3); audio.crash(0.45); car.speed *= 0.72; }
+        if (Math.abs(car.speed) > 8) { damageCar(o, Math.abs(car.speed) * 0.4, null); if (o === targetCar) commitCrime(3); if (Math.abs(car.speed) > 14) fx.dustPuff((car.pos.x + o.pos.x) / 2, 0.6, (car.pos.z + o.pos.z) / 2, false); audio.crash(0.45); car.speed *= 0.72; }
       }
     }
     car.mesh.rotation.y = car.heading - Math.PI / 2;
     spinWheels(car, car.speed, dt);
+    // Tire smoke: the rear tires boil when the car breaks traction —
+    // handbrake slides, full-lock corners at speed, and hard launches.
+    const drifting = !car.wrecked && ((keys.Space && Math.abs(car.speed) > 8) ||
+      (Math.abs((left ? 1 : 0) - (right ? 1 : 0)) > 0 && Math.abs(car.speed) > car.model.top * 0.72) ||
+      (up && Math.abs(car.speed) > 0.5 && Math.abs(car.speed) < 6));
+    if (drifting) {
+      smokeAcc += dt;
+      const f2 = fwd(car.heading), side = { x: -Math.cos(car.heading), z: Math.sin(car.heading) };
+      const rear = (car.mesh.userData.length || 4.6) / 2 - 0.85;
+      while (smokeAcc > 0.03) {
+        smokeAcc -= 0.03;
+        for (const s of [-0.95, 0.95]) {
+          fx.tireSmoke(car.pos.x - f2.x * rear + side.x * s, 0.35, car.pos.z - f2.z * rear + side.z * s);
+        }
+      }
+    } else smokeAcc = 0;
     player.pos.copy(car.pos);
     player.heading = car.heading;
     audio.setEngine(true, Math.abs(car.speed) / car.model.top, Math.abs(car.speed) / car.model.top);
@@ -650,6 +717,7 @@ function updateCamera(dt) {
   sun.target.position.set(fp.x, 0, fp.z);
 }
 let darkness = 0;   // 0 at noon, 1 at deep night; updateSky owns it
+const EMBER = new THREE.Color(0xff8a4a);
 function updateSky() {
   const h = S.clock;
   // Sunrise 06:30, sunset 19:30; a long golden dusk band centred on 19:00.
@@ -669,9 +737,14 @@ function updateSky() {
   }
   // The look stays bright and stylised at every hour: the sun never drops
   // below a moonlight floor, and the hemisphere fill does most of the work.
-  sun.intensity = 0.7 + day * 1.5 + dusk * 0.5;
+  sun.intensity = 0.8 + day * 1.6 + dusk * 0.6;
   sun.color.setHex(dusk > 0.35 ? 0xffb37a : day < 0.2 ? 0xaac4ff : 0xffe3b3);
-  hemi.intensity = 0.85 + day * 0.3;
+  hemi.intensity = 0.78 + day * 0.3;
+  // The sun disc deepens to ember orange as the dusk band peaks, and the
+  // dome's horizon band (already warm in the gradient) picks it up.
+  if (city.skyDome && city.skyDome.userData.sunDisc) {
+    city.skyDome.userData.sunDisc.material.color.setHex(0xfff2c0).lerp(EMBER, dusk * 0.85);
+  }
   const night = lightLevel < 0.45;
   for (const lamp of city.lamps) lamp.material.color.setHex(night ? 0xffe9a8 : 0x8a8f96);
   for (const pl of city.nightLights) pl.intensity = lightLevel < 0.3 ? 520 : 0;
@@ -770,6 +843,7 @@ const api = {
     const car = spawnCar(idx, x, z, heading, "player", modelName === "Pelo GT" ? { color: 0xf06423 } : {});
     car.speed = speed;
     addHeadlightPool(car);
+    addHeadlightCones(car);
     S.inCar = car; playerMesh.visible = false;
     player.pos.copy(car.pos); camYaw = heading + Math.PI; camPitch = 0.3;
     camera.position.set(x - Math.sin(heading) * 11, 4.5, z - Math.cos(heading) * 11);
@@ -884,10 +958,22 @@ function frame(now) {
       pos.needsUpdate = true;
     }
     if (city.boats) for (const b of city.boats) {
+      const o = b.userData.orbit;
+      if (o) {
+        // Under way: walk the boat around its circuit, bow into the
+        // direction of travel, wake ring breathing behind it.
+        const a = now / 1000 * o.sp + o.a;
+        b.position.x = o.x + Math.cos(a) * o.r;
+        b.position.z = o.z + Math.sin(a) * o.r;
+        b.rotation.y = o.sp > 0 ? -a - Math.PI / 2 : -a + Math.PI / 2;
+        if (b.userData.wake) b.userData.wake.scale.setScalar(1 + Math.sin(now / 320 + o.a) * 0.13);
+      }
       b.position.y = 0.1 + Math.sin(now / 820 + b.userData.phase) * 0.2;
       b.rotation.z = Math.sin(now / 970 + b.userData.phase) * 0.03;
     }
     poolMat.opacity = darkness * 0.36;
+    coneMat.opacity = darkness * 0.14;
+    fx.update(dt);
     hud.update(dt, hudState());
     audio.music(dt, true);
     audio.setEngine(!!S.inCar, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0);
