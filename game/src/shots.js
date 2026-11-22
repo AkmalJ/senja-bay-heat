@@ -10,7 +10,9 @@ export function stageScene(name, api) {
       api.setClock(16.35);
       api.setStats({ money: 18450, respect: 1675, health: 72, armor: 55 });
       api.startJobAt(5, 1);                    // SIRENS AT DUSK, escape stage
-      api.placeInCar("Pelo GT", 285, 30, Math.PI, 31); // heading north up the strand road
+      api.placeInCar("Pelo GT", 285, 22, Math.PI, 31); // heading north up the strand road
+      // (car sits 8 m south of the z=30 palm row so no clipped crown
+      // hangs into the top-right of the frame)
       api.setCamOffset(-0.42);
       api.setWanted(4, true);
       api.spawnChasePack(4, 16);
@@ -27,19 +29,23 @@ export function stageScene(name, api) {
       break;
     }
     case "market": {
-      // On-foot combat in the night market, second stage of MARKET SQUEEZE.
-      api.setClock(18.58);
+      // On-foot combat INSIDE the night market: Raka stands in the aisle
+      // between the z=126 stall row (fronts + signs facing him) and the
+      // z=160 row (backs + awnings receding on the right), looking east
+      // down the aisle into the Kerang Boys the clear stage spawns.
+      api.setClock(19.3);
       api.setStats({ money: 7270, respect: 940, health: 95, armor: 27 });
       api.startJobAt(1, 1);                    // clear-the-aisles stage (spawns hostiles)
-      api.placeOnFoot(-238, 146, Math.PI);     // facing the stall rows, signs toward camera
-      api.setCamOffset(0.15);
-      api.addPed(-234, 140, {});
-      api.addPed(-230, 141, {});
+      api.placeOnFoot(-248, 148, 2.65);        // in the aisle, facing NE into the stall row
+      api.setCamOffset(0);
+      // Kerang Boys posted in the aisle, already in SMG range of Raka.
+      api.addPed(-236, 138, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-240, 134, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-246, 132, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // Shoppers threading the aisle between the lit stalls.
-      api.addPed(-224, 138, {});
-      api.addPed(-226, 122, {});
-      api.addPed(-196, 128, {});
-      api.parkCar("Bemo Pickup", -160, 84, 0.4);
+      api.addPed(-252, 138, {});
+      api.addPed(-243, 137, {});
+      api.parkCar("Bemo Pickup", -156, 143, 1.35);
       api.selectWeapon("smg");
       api.setWanted(2, true);
       api.spawnFootPack(2);
@@ -68,14 +74,16 @@ export function stageScene(name, api) {
     case "hills": {
       // On foot on the Bukit Kapur road at dusk, ledger job, looking back
       // across the whole lit bay toward the gold objective marker.
-      api.setClock(18.3);
+      api.setClock(18.6);
       api.setStats({ money: 11980, respect: 1340, health: 88, armor: 40 });
       api.startJobAt(4, 0);
-      api.placeOnFoot(-262, -288, 0.77);
-      api.parkCar("Senja Coupe", -248, -268, 0.8);
-      api.parkCar("Taksi Senja", -232, -252, 0.9);
-      api.addPed(-252, -278, {});
-      api.addPed(-244, -262, { hat: 0xe9c46a });
+      api.placeOnFoot(-250, -272, 0.88);
+      api.parkCar("Senja Coupe", -246, -266, 0.8);
+      api.parkCar("Taksi Senja", -234, -254, 0.9);
+      api.addPed(-244, -268, {});
+      api.addPed(-240, -262, { hat: 0xe9c46a });
+      api.addPed(-237, -273, {});
+      api.addPed(-230, -252, {});
       api.selectWeapon("pistol");
       api.dialogue("Laras", "LOOKOUT — CREW", "That's his car below — blue coupe, bookkeeper in the back. His escort drives fast. His brakes do not.");
       break;
