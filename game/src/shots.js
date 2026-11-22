@@ -92,14 +92,27 @@ export function stageScene(name, api) {
       break;
     }
     case "hills": {
-      // On foot on the Bukit Kapur road at dusk, ledger job, looking back
-      // across the whole lit bay toward the gold objective marker.
-      api.setClock(18.85);
+      // On foot on the Bukit Kapur road at deep dusk, ledger job: the
+      // bookkeeper's coupe waits under the gold objective beam, traffic
+      // parked along the lookout, and an SBPD cruiser rolls in on the
+      // player — light bar flashing, headlight cones cutting the dark —
+      // so the wanted response reads in this frame too, not just the
+      // chase shots. The cluster is pulled tight around the player so
+      // the lit skyline, not the bare chalk apron, fills the frame.
+      // Clock 20.6, not 19.x: the lamp heads and night work-lights
+      // only switch on once the sky's light level drops past their
+      // thresholds just before 20:00, and at 20:00 the dome tint is
+      // still bright enough to read as afternoon — 20.6 is where the
+      // sky goes navy with the dusk band down to an ember line, the
+      // lit windows take over, and the headlight cones/pools reach
+      // full strength against the pale chalk.
+      api.setClock(20.6);
       api.setStats({ money: 11980, respect: 1340, health: 88, armor: 40 });
       api.startJobAt(4, 0);
-      api.placeOnFoot(-250, -272, 0.88);
-      api.parkCar("Senja Coupe", -246, -266, 0.8);
-      api.parkCar("Taksi Senja", -234, -254, 0.9);
+      api.placeOnFoot(-249, -270, 0.88);
+      api.parkCar("Senja Coupe", -245, -264, 0.8);
+      api.parkCar("Taksi Senja", -237.7, -247.6, 0.9);
+      api.parkCar("Kijang Sprint", -226.8, -267.1, 1.0);
       api.parkCar("Senja Scooter", -254, -264, 1.2);
       api.setPackagesFound(8);
       api.addPed(-244, -268, {});
@@ -107,7 +120,9 @@ export function stageScene(name, api) {
       api.addPed(-237, -273, {});
       api.addPed(-230, -252, {});
       api.selectWeapon("pistol");
-      api.dialogue("Laras", "LOOKOUT — CREW", "That's his car below — blue coupe, bookkeeper in the back. His escort drives fast. His brakes do not.");
+      api.setWanted(2, true);
+      api.spawnChasePack(1, 12);
+      api.dialogue("Laras", "LOOKOUT — CREW", "That's his car below — blue coupe, bookkeeper in the back. Cruiser rolling in on us — stay sharp, Raka.");
       break;
     }
   }
