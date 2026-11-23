@@ -216,18 +216,16 @@ spawnCar(6, 297, -120, Math.PI, "parked");
 //       nose at z 174.3, just short of the north crosswalk band
 //       (z 174.9-178.3).
 //     - The RED pair he added on the z=190 street keep their
-//       spots (north lane z 186, south lane z 194). They first
-//       faced their own lanes' flow (north -PI/2, south +PI/2);
-//       on the owner's verdict over title12 ("udah bener, hanya
-//       arahnya yang terbalik, jadi puter 180 derajat") both
-//       were rotated 180 degrees — north lane now east (+PI/2),
-//       south lane west (-PI/2), facing against their lanes'
-//       flow on his explicit word.
+//       spots (north lane z 186, south lane z 194) and face
+//       their own lanes' flow: north lane west (-PI/2), south
+//       lane east (+PI/2). (A 180-degree flip ordered over
+//       title12 was reversed again on the owner's word over
+//       title13 — "ternyata udah bener sebelumnya, balikin aja
+//       posisinya" — so the pair stands exactly as in title12.)
 // All six keep ownerMark so the menu traffic treatment presents
 // them (the two parked-stance cars face poster headings, not
-// their kerbs' flow; the van and the dark coupe pass the facing
-// test on their own merits; the reversed pair is exempted by
-// ownerMark per the owner's direct order above).
+// their kerbs' flow; the other four pass the facing test on
+// their own merits).
 function ownerFace(x, z, heading, nudgeX) {
   const car = cars.find((c) => c.kind === "parked" && c.pos.x === x && c.pos.z === z);
   if (!car) return;
@@ -259,17 +257,15 @@ ownerRelocate(276, 222, 293.6, 230, 1.516); // blue — Senja Coupe, parked acro
 ownerDrive(276, 162, 281, 208.1, Math.PI); // yellow — dark blue Senja Coupe, northbound, stopped at the light
 ownerDrive(294, 230, 289, 171.4, 0);       // blue — GREEN Angkot Van, southbound, stopped at the light
 // Red — the two cars he added on the z=190 street, in its lanes
-// (north z = 186, south z = 194). They faced their lanes' flow
-// through title12; the owner then ordered both rotated 180
-// degrees, so they now face against the flow on his word (and
-// ownerMark keeps them presented in the menu regardless).
+// (north z = 186, south z = 194), each facing its lane's flow
+// (the title12 state, restored after a brief flip was undone).
 // Clear of the junction mouth (east corners reach x 267.6, the
 // boulevard starts at 274) and of the cargo footprints (south
 // corners reach z 196.5, cargo at 204.6).
-const redA = spawnCar(0, 265.9, 186, Math.PI / 2, "parked");
-redA.mesh.rotation.y = Math.PI / 2 - Math.PI / 2; redA.ownerMark = true;
-const redB = spawnCar(5, 255.4, 194, -Math.PI / 2, "parked");
-redB.mesh.rotation.y = -Math.PI / 2 - Math.PI / 2; redB.ownerMark = true;
+const redA = spawnCar(0, 265.9, 186, -Math.PI / 2, "parked");
+redA.mesh.rotation.y = -Math.PI / 2 - Math.PI / 2; redA.ownerMark = true;
+const redB = spawnCar(5, 255.4, 194, Math.PI / 2, "parked");
+redB.mesh.rotation.y = Math.PI / 2 - Math.PI / 2; redB.ownerMark = true;
 // Rolling traffic.
 for (let i = 0; i < 18; i++) {
   const lines = roadLines();
