@@ -233,27 +233,14 @@ export function stageScene(name, api) {
       // (heading π/2) along the road and the gang stands SOUTH
       // of the ray against the container cluster, and the capture
       // tool swings the camera the other way (negative offset,
-      // to Raka's gun side) into the same clean window the
-      // market won:
-      //   near man (+4.2, +0.4 S) at (200.2, 189.9) — the kill;
-      //     his body settles back west toward Raka along the
-      //     lane, alone on the asphalt under the beam.
-      //   primary (+7.8, +0.8 S) at (203.8, 190.3) — the standing
-      //     target and a cued return-firer; 0.8 m off the ray is
-      //     inside the ray test's 0.9 pick tolerance, so Raka's
-      //     fire walks near man → primary.
-      //   south firer (+6.9, +3.4 S) at (202.9, 192.9) — diagonal
-      //     return fire across the lane.
-      //   south-mid (+10.8, +3.4 S) at (206.8, 192.9) — the third
-      //     standing gun, holding his fire for the frozen instant.
+      // to Raka's gun side).
       // THE FIX ROUND (owner's review of the first shipped
       // frame) moved the whole fight 7 m WEST, from x = 203 to
       // x = 196: at 203 the cluster's long red box hung its flat
       // face across the frame's centre like a billboard; at 196
       // the same box steps right and shrinks, the blue stack and
       // the green box take the centre sky, and only the far men
-      // touch red. The relative geometry — every offset above —
-      // is untouched, so the choreography plays identically.
+      // touch red.
       // THE BURNING CAR is the drama anchor, and it now sits
       // where the swung camera actually looks: a Kijang wrecked
       // on the apron's south edge at (204, 197), in FRONT of the
@@ -280,39 +267,53 @@ export function stageScene(name, api) {
       api.startJobAt(6, 1);                    // THE LONG TABLE, clear-the-port-road stage
       api.placeOnFoot(196, 189.5, Math.PI / 2); // port road at the container cluster, firing east
       api.setCamOffset(0);
+      // THE ANGLE FIX (owner's review of the lively candidate:
+      // "musuh malah ketutupan karakter kita" — the enemies are
+      // covered by our own character). The cast77–79 probes
+      // measured screen boxes with the game's own camera model
+      // and proved the along-ray line cannot be fixed by any
+      // swing: at -0.48 the camera axis extended spears the
+      // south firer (overlap 2.6 pts) and south-mid (1.0); at
+      // -0.84 it spears the bookend instead and throws the
+      // primary behind the left panels; a flank-ray layout
+      // throws its far anchor to 10.8%. A lateral N-S line fans
+      // ~65 pts wide — wider than the 30-65 clean window.
+      // What works is placing each man against the -0.48 axis
+      // (tilt 28.8 deg S of E through Raka; screen centre ~
+      // 50 + 0.80 x the axis-model offset, the 0.80 being the
+      // probes' measured compression): every standing man sits
+      // >= 1.4 pts of screen clear of the hero's silhouette box
+      // (45.5..54.5) with air between neighbours. Measured
+      // boxes at the solved swing (cast79 probe):
+      //   near man (200.2, 189.9) — the kill, on the ray
+      //     (+4.2, +0.4 S); settles west toward Raka, alone
+      //     on the asphalt under the beam.
+      //   primary (203.3, 190.3) — Raka's standing target,
+      //     box 35.3..38.1; 0.8 m off the ray is inside the
+      //     0.9 pick tolerance, so the fire walks near man ->
+      //     primary, and the beam now ends on a man standing
+      //     clear at the frame's left third, not behind Raka.
+      //   south firer (205.6, 191.9) — box 39.4..41.6; cued
+      //     return fire across the lane.
+      //   south-mid (208.7, 193.9) — box 42.3..44.1, the last
+      //     man left of the hero (1.4 pts of air); third cued
+      //     return-firer.
+      //   east-south (206.7, 198.7) — box ~57.2..59.4, first
+      //     man right of the hero, deep against the container
+      //     faces, 3.2 m clear of the burning Kijang.
+      //   south bookend (201.5, 196.1) — box ~61.5..64.5,
+      //     the line's near end big in the foreground south
+      //     of the corpse patch, far outside the pick
+      //     tolerance so the fire walk is untouched.
       api.addPed(200.2, 189.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(203.8, 190.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(202.9, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(206.8, 193.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      // THE LIVELY CANDIDATE (owner's ask: "bikin adegan
-      // tembaknya lebih hidup"): the standing frame fields
-      // three guns + the corpse; this variant fields FIVE
-      // standing guns + the corpse — the south line extends
-      // east along the container frontage as a shallow ARC,
-      // each step east also stepping south (192.9 → 193.9 →
-      // 194.8) so the men separate diagonally in projection
-      // instead of stacking along one lane (cast71's straight
-      // 192.9 line lost its far men behind the burning car):
-      //   east-mid (+14.6, +5.3 S) at (210.6, 194.8) — the
-      //     arc's fourth man, in front of the container faces.
-      //   south bookend (+5.5, +6.0 S) at (201.5, 195.5) —
-      //     the line's near end, south of the corpse patch:
-      //     three far-end spots all failed on evidence —
-      //     the south spots (190.8, 191.6) projected onto
-      //     the burning Kijang and the flames ate the man,
-      //     the north lane (186.8) threw him past the 65%
-      //     window edge, and the road's centre line at
-      //     20.5 m is a live traffic lane that shoved him
-      //     out of his pin. The fifth gun instead closes
-      //     the line's WEST end, big in the foreground
-      //     between the corpse and the primary, 6 m south
-      //     of the ray — far outside the pick tolerance,
-      //     so the fire walk is untouched.
+      api.addPed(203.3, 190.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(205.6, 191.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(208.7, 193.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // Two extra unpinned reactors at the yard's east edge
       // flee through the frame's depth when the shooting
       // starts — crowd life at the edges, clear of the lanes.
-      api.addPed(210.6, 194.8, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(201.5, 195.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(206.7, 198.7, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(201.5, 196.1, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // Dockers pinned at the frame's edges and two unpinned
       // reactors inside the panic radius.
       const docker = (x, z, speed, opts) => { const p = api.addPed(x, z, opts || {}); if (p) p.speed = speed; };
