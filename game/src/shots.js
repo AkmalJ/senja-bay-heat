@@ -222,8 +222,10 @@ export function stageScene(name, api) {
       break;
     }
     case "port":
-    case "portshoulder": {
+    case "portshoulder":
+    case "portwide": {
       const SHOULDER = name === "portshoulder";
+      const WIDE = name === "portwide";
       // Dusk-night shootout at Pelabuhan. Three stagings taught
       // the geography the hard way: the apron is a featureless
       // slab (casts 53–55: fog void, flash disc, no backdrop),
@@ -292,6 +294,29 @@ export function stageScene(name, api) {
       // south-east in one line: measured centres ~40, 44, 48,
       // 52, all complete, none behind the hero, all < 65.
       if (SHOULDER) api.setCamShoulder(1.3);
+      // THE WIDE VARIANT (?stage=portwide, owner's review of
+      // the shoulder frame: "gengnya di kiri semua, padahal
+      // kanan masih kosong — POV-nya agak jauh sedikit biar
+      // lebih luas"). Same over-shoulder grammar, but the
+      // follow pulls BACK (staging-only S.camBack adds to the
+      // follow distance; inert in play) so the yard opens up,
+      // and the fan spreads east along the wall toward a wreck
+      // at (215.5, 202) so no third of the frame sits empty.
+      // The shoulder grows to hold Raka at the left third from
+      // the longer distance. First two men never move (ray
+      // chain, see the angle-fix note below). The cast88/89
+      // probes (22 combos, game's own camera model) picked
+      // the capture geometry: swing -0.52, shoulder 1.5, back
+      // 1.8 (dist 5.25), pitch 0.16 — the only family where
+      // the primary clears BOTH the hero (0.0 overlap) and
+      // the dispatch panel (his box straddles its right edge,
+      // body in the open), all five men read, and the fan's
+      // tail reaches ~54-58 with the wreck's flame mid-fan;
+      // -0.42 buries the primary behind the hero, -0.62
+      // behind the panel, and a farther fan (cast89 fan B)
+      // compresses instead of spreading — screen reach is
+      // angular, not linear.
+      if (WIDE) { api.setCamShoulder(1.5); api.setCamBack(1.8); }
       // THE ANGLE FIX (owner's review of the lively candidate:
       // "musuh malah ketutupan karakter kita" — the enemies are
       // covered by our own character). The cast77–79 probes
@@ -335,7 +360,9 @@ export function stageScene(name, api) {
       // SHOULDER note above); the first two never move — the
       // near man is the on-ray kill and the primary is Raka's
       // standing target, both chained to the duel ray.
-      const GANG = SHOULDER
+      const GANG = WIDE
+        ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.5, 193.5, false], [208.5, 196.8, true], [211.0, 201.5, false], [213.5, 205.5, true]]
+        : SHOULDER
         ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.9, 194.6, false], [208.0, 197.2, true], [208.8, 199.8, false], [209.4, 202.2, true]]
         : [[200.2, 189.9, false], [203.3, 190.3, true], [205.6, 191.9, false], [208.7, 193.9, true], [206.7, 198.7, false], [201.5, 196.1, true]];
       for (const [gx, gz, vest] of GANG) api.addPed(gx, gz, { hostile: true, gun: true, shirt: 0x6c3483, vest });
@@ -346,7 +373,8 @@ export function stageScene(name, api) {
       const docker = (x, z, speed, opts) => { const p = api.addPed(x, z, opts || {}); if (p) p.speed = speed; };
       docker(189, 185.5, 0.3, { cap: 0xf5c518 });
       docker(190.5, 186.5, 0.35, {});
-      if (SHOULDER) { docker(216, 200.5, 0.3, { cap: 0xe07a3f }); docker(217.5, 201.5, 0.35, {}); }
+      if (WIDE) { docker(219, 203.5, 0.3, { cap: 0xe07a3f }); docker(220.5, 204.5, 0.35, {}); }
+      else if (SHOULDER) { docker(216, 200.5, 0.3, { cap: 0xe07a3f }); docker(217.5, 201.5, 0.35, {}); }
       else { docker(211.5, 198.5, 0.3, { cap: 0xe07a3f }); docker(213, 199.5, 0.35, {}); }
       api.addPed(192, 183.5, {});
       api.addPed(193, 196, {});
@@ -354,7 +382,8 @@ export function stageScene(name, api) {
       api.addPed(219.5, 191, {});
       // The drama anchor and yard dressing. In the shoulder
       // variant the Kijang waits at the fan's east end.
-      if (SHOULDER) api.parkCar("Kijang Sprint", 212.5, 200.5, 0.55);
+      if (WIDE) api.parkCar("Kijang Sprint", 215.5, 202, 0.55);
+      else if (SHOULDER) api.parkCar("Kijang Sprint", 212.5, 200.5, 0.55);
       else api.parkCar("Kijang Sprint", 204, 197, 0.55);
       api.parkCar("Kargo Box Truck", 233, 201, 0.5);
       api.parkCar("Angkot Van", 194, 198, 0.8);

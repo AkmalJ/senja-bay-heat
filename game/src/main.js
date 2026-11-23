@@ -74,6 +74,7 @@ const S = {
   paused: false,
   camOffset: 0,
   camShoulder: 0,
+  camBack: 0,
 };
 
 // ---------- player ----------
@@ -1141,7 +1142,7 @@ function updateCamera(dt) {
   // too (v5): 9.6 m / 3.3 m up floated above the chase like a
   // drone; 8.2 m / 2.5 m sits in the car's wake at boot height,
   // the reference chase framing.
-  const dist = S.inCar ? 8.2 : 4.2 - Math.min(0.75, (S.camShoulder || 0) * 0.5), height = S.inCar ? 2.5 : 1.8;
+  const dist = S.inCar ? 8.2 : 4.2 - Math.min(0.75, (S.camShoulder || 0) * 0.5) + (S.camBack || 0), height = S.inCar ? 2.5 : 1.8;
   const back = { x: Math.sin(camYaw) * Math.cos(camPitch), z: Math.cos(camYaw) * Math.cos(camPitch) };
   // Staging-only over-shoulder lever (S.camShoulder, metres): the
   // follow camera and its aim point step sideways by the same
@@ -1355,6 +1356,7 @@ const api = {
   },
   setCamOffset(v) { S.camOffset = v; },
   setCamShoulder(v) { S.camShoulder = v; },
+  setCamBack(v) { S.camBack = v; },
   setPackagesFound(n) { activities.setFound(n); },
   startRace(i) { activities.beginRace(i, true); },
   parkCar(modelName, x, z, heading) {
