@@ -1308,6 +1308,33 @@ function restoreMenuBeach() {
   menuBeachOn = false;
 }
 
+// ---------- title-screen shadow-camera treatment ----------
+// One more menu-only touch, same contract. The sun's shadow
+// camera spans ±120 around its axis; from the menu sun (west,
+// low) that box covers the northern beach but stops short of the
+// poster's southern half — the dense umbrella row (z 98..278)
+// falls outside the map, so its canopies cast nothing and the
+// umbrellas float on the sand, shadowless, while the buildings
+// behind them throw long shadows. While the menu is up the box
+// widens to ±270 and the whole poster grounds its shadows, all
+// pointing the one way the senja sun points; the moment play
+// starts the tight, crisp ±120 box returns untouched.
+let menuShadowCamOn = false;
+function applyMenuShadowCam() {
+  if (menuShadowCamOn) return;
+  const c = sun.shadow.camera;
+  c.left = -270; c.right = 270; c.top = 270; c.bottom = -270;
+  c.updateProjectionMatrix();
+  menuShadowCamOn = true;
+}
+function restoreMenuShadowCam() {
+  if (!menuShadowCamOn) return;
+  const c = sun.shadow.camera;
+  c.left = -120; c.right = 120; c.top = 120; c.bottom = -120;
+  c.updateProjectionMatrix();
+  menuShadowCamOn = false;
+}
+
 // ---------- title-screen setting sun ----------
 // One more menu-only touch, same contract as the clouds, the
 // grade and the vista (applied while the menu is up, restored
@@ -1422,6 +1449,7 @@ function updateCamera(dt) {
     applyMenuSun();
     applyMenuTraffic();
     applyMenuBeach();
+    applyMenuShadowCam();
     if (!menuGradeOn) { renderer.toneMappingExposure = 1.36; menuGradeOn = true; }
     return;
   }
@@ -1430,6 +1458,7 @@ function updateCamera(dt) {
   restoreMenuSun();
   restoreMenuTraffic();
   restoreMenuBeach();
+  restoreMenuShadowCam();
   if (menuGradeOn) { renderer.toneMappingExposure = 1.12; menuGradeOn = false; }
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;

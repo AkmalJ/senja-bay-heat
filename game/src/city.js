@@ -329,8 +329,17 @@ export class City {
     const pave = new THREE.MeshLambertMaterial({ color: 0xb8b0a0 });
     for (const bx of roadLines()) for (const bz of roadLines()) {
       if (bx === 285) continue;   // beach column: sand, unbroken
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(WORLD.block - WORLD.roadHalf * 2 + 6, 0.18, WORLD.block - WORLD.roadHalf * 2 + 6), pave);
-      slab.position.set(bx + WORLD.block / 2, 0.02, bz + WORLD.block / 2);
+      // The port-apron block (bx 190, bz 190) keeps its east edge off
+      // the boulevard: every slab overlaps its road strips by 3 m
+      // (slab top 0.11 over asphalt 0.06), which reads as kerb
+      // everywhere else — but in the title foreground the boulevard's
+      // west-kerb bay car sits squarely on that band, on grey
+      // pavement instead of the asphalt it belongs to, in front of a
+      // whole grey yard. Trimmed back to the road's edge (x 273.5),
+      // the bay parks on asphalt like every other kerb in town.
+      const trimE = (bx === 190 && bz === 190) ? 3.5 : 0;
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(WORLD.block - WORLD.roadHalf * 2 + 6 - trimE, 0.18, WORLD.block - WORLD.roadHalf * 2 + 6), pave);
+      slab.position.set(bx + WORLD.block / 2 - trimE / 2, 0.02, bz + WORLD.block / 2);
       slab.receiveShadow = true;
       this.scene.add(slab);
     }
@@ -535,6 +544,9 @@ export class City {
     };
     const canopyMats = cols.map((hex) => new THREE.MeshLambertMaterial({ map: stripeTex(hex) }));
     const finialMat = new THREE.MeshLambertMaterial({ color: 0xfff6e8 });
+    // The pole (gagang) is a real mast, not a hair: 0.44 across and
+    // 3 tall, casting its own shadow — at the old 0.12 radius it was
+    // sub-pixel from the title vantage and the canopies floated.
     const poleMat = new THREE.MeshLambertMaterial({ color: 0xdddddd });
     const dressShade = (ux, uz, i, r) => {
       const lg = new THREE.Group();
@@ -555,8 +567,8 @@ export class City {
       u.castShadow = true; this.scene.add(u);
       const fin = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), finialMat);
       fin.position.set(ux, 3.2, uz); this.scene.add(fin);
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6), poleMat);
-      pole.position.set(ux, 1.2, uz); this.scene.add(pole);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 3.0), poleMat);
+      pole.position.set(ux, 1.4, uz); pole.castShadow = true; this.scene.add(pole);
       dressShade(ux, uz, i, rnd());
     }
     // A second, denser row from a local stream (shared stream
@@ -572,8 +584,8 @@ export class City {
       u.position.y = 2.35; u.castShadow = true; grp.add(u);
       const fin = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), finialMat);
       fin.position.y = 3.2; grp.add(fin);
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6), poleMat);
-      pole.position.y = 1.2; grp.add(pole);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 3.0), poleMat);
+      pole.position.y = 1.4; pole.castShadow = true; grp.add(pole);
       grp.position.set(ux, 0, uz);
       grp.rotation.z = (rndU() - 0.5) * 0.14;
       grp.rotation.x = (rndU() - 0.5) * 0.1;
@@ -1150,8 +1162,15 @@ export class City {
     // of every road strip (the shore road, the boulevard, the z=285
     // road all stay visible and drivable). No rnd is consumed by the
     // move: the yard's layout stream is unchanged.
+    // The slots sit inside the owner's orange diamond, projected
+    // through the menu camera: world x 258..270, z 205..218 — on the
+    // apron slab, clear of the shore road (z <= 201 under the
+    // footprints) and the boulevard (x >= 274), and squarely inside
+    // the title frame where the owner can see them. (The first slot
+    // pair, further south-west, projected below the frame's edge —
+    // cargo the poster could not show is cargo that reads as gone.)
     const contCols = [0xc0392b, 0x2471a3, 0x229954, 0xca6f1e, 0x707b7c, 0x7d3c98, 0x148f77, 0xb03a5b];
-    const APRON_SLOTS = [[233, 224], [253, 246]];
+    const APRON_SLOTS = [[264, 207.5], [264, 214.5]];
     let apronUsed = 0;
     for (let i = 0; i < 22; i++) {
       let cx = 130 + rnd() * 150, cz = 185 + rnd() * 110;
@@ -1163,6 +1182,7 @@ export class City {
         containerMaterials(contCols[i % 8], i % 3));
       cont.position.set(cx, 2.25 + (!grounded && i % 3 === 0 ? 4.5 : 0), cz);
       cont.rotation.y = (rnd() - 0.5) * 0.4; cont.castShadow = true;
+      if (grounded) cont.rotation.y = -0.06;   // the marked pair sits square to the apron
       this.scene.add(cont);
       if (i % 3 !== 0 || grounded) this.addCollider(cx, cz, 6, 2.6);
     }
