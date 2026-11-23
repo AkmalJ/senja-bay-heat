@@ -1285,21 +1285,30 @@ function restoreMenuTraffic() {
 // ---------- title-screen beach-shadow treatment ----------
 // One more menu-only touch, same contract. The poster's beach is
 // a single sand plane (city.js buildStrand, 0xf2cb6e), but the
-// olive patch the owner marked on it is real: the menu's low
-// western sun throws the boulevard column's buildings across the
+// olive patch the owner marked on it was real: the menu's low
+// western sun threw the boulevard column's buildings across the
 // sand — a probe named the casters building by building (the
 // (237.5, 142.5) foreground block and the (237.5, 47.5)
-// strand-park fill). While the menu is up those buildings simply
-// do not cast, and the beach reads as the one sheet of yellow
-// the owner asked for; the moment play starts every shadow
-// returns, untouched.
+// strand-park fill) — so while the menu was up those buildings
+// simply did not cast, and the beach read as one sheet of
+// yellow. That retirement is itself retired now: the sun-light
+// treatment seats the menu light in the EAST, on the poster
+// disc's azimuth, so those same buildings throw their shadows
+// WEST, onto the city ground — where the owner, reviewing the
+// eastern poster, demanded building shadows back. They can no
+// longer reach the sand at all (nothing east of the beach casts
+// but boats), so the casters stay ON through the menu and the
+// beach keeps its one tone by geometry instead of by gag.
+// The treatment remains as the contract's bookkeeping: the
+// caster list is still computed for probes/readback, and the
+// restore below still re-asserts every caster the moment play
+// starts, untouched as ever.
 let menuBeachOn = false, menuBeachCasters = null;
 function applyMenuBeach() {
   if (menuBeachOn) return;
   if (!menuBeachCasters) {
     menuBeachCasters = city.buildings.filter((b) => b.position.x >= 190 && b.position.x <= 285 && b.position.z >= -95 && b.position.z <= 190);
   }
-  for (const b of menuBeachCasters) b.castShadow = false;
   menuBeachOn = true;
 }
 function restoreMenuBeach() {
@@ -1319,11 +1328,25 @@ function restoreMenuBeach() {
 // widens to ±270 and the whole poster grounds its shadows, all
 // pointing the one way the senja sun points; the moment play
 // starts the tight, crisp ±120 box returns untouched.
+// The far plane is the second half of the same treatment, and
+// the eastern sun seat is why: the home far (600) was sized for
+// the play seat, ~350 from the player. From the poster's
+// eastern seat the light sits ~610 from the vista target alone,
+// and the city's western half — the towers, the port containers,
+// the ground their shadows land on — lies deeper still along
+// the axis, past the far plane, outside the shadow frustum.
+// That, not direction, is what emptied title9's city of shadows
+// even after the span was widened: a probe with the casters
+// forced on changed nothing, and the same probe with far pushed
+// to 2000 brought the towers' shadow mass and the containers'
+// shadows back in one render. So the menu takes far to 2000
+// with the span, and play takes both back untouched.
 let menuShadowCamOn = false;
 function applyMenuShadowCam() {
   if (menuShadowCamOn) return;
   const c = sun.shadow.camera;
   c.left = -270; c.right = 270; c.top = 270; c.bottom = -270;
+  c.far = 2000;
   c.updateProjectionMatrix();
   menuShadowCamOn = true;
 }
@@ -1331,6 +1354,7 @@ function restoreMenuShadowCam() {
   if (!menuShadowCamOn) return;
   const c = sun.shadow.camera;
   c.left = -120; c.right = 120; c.top = 120; c.bottom = -120;
+  c.far = 600;
   c.updateProjectionMatrix();
   menuShadowCamOn = false;
 }
@@ -1421,15 +1445,35 @@ function restoreMenuSun() {
 // is meant to fall away from. The owner called it plainly:
 // the shadows run opposite the sun. While the menu is up this
 // treatment re-seats the light on the disc's own azimuth from
-// the vista target, at the home seat's distance and height,
-// so the whole poster throws its shadows west, away from the
-// disc, at the lengths the poster was composed with. The
-// branch re-seats the light before the treatments run each
-// frame, so the move is re-asserted each frame too. Restore
-// is the play branch itself: it seats the light on the player
-// every frame, and updateSky owns the light's colour and
-// strength in both modes — nothing here leaks into play.
-const MENU_SUNLIGHT_DIST = 528, MENU_SUNLIGHT_Y = 58;
+// the vista target, so the whole poster throws its shadows
+// west, away from the disc. The seat keeps the home distance
+// but NOT the home height: at the home elevation (6.3°) the
+// direction was right and the shadows were gone — a palm at
+// the kerb threw its crown shadow ~77 m west, clean off the
+// beach onto the city, and at that grazing angle the sand's
+// direct-light factor (sin 6.3° ≈ 0.11) left almost no shadow
+// contrast on the flat ground anyway. The owner reviewed the
+// render and called it: shadows vanished. So the seat rides
+// the disc's azimuth at a raised elevation — high enough that
+// the umbrella field's shadows (canopy ~3 m, throw ~5 m at
+// 30°) land whole on the sand just west of each pole and the
+// palm trunks' shadows read along the promenade strip, all
+// pointing west, with the ground contrast (sin 30° = 0.50,
+// ~4.5x the grazing seat's) to carry them. Tuned on renders:
+// 24° still read faint; 30° is where the field's shadows stand
+// up at the presence the earlier western poster had, in the
+// opposite direction.
+// The disc itself is a borrowed billboard hung low for the
+// poster; the light's elevation is the one liberty the poster
+// takes with it, and the azimuth — the direction the owner
+// actually judged — stays the disc's own. The branch re-seats
+// the light before the treatments run each frame, so the move
+// is re-asserted each frame too. Restore is the play branch
+// itself: it seats the light on the player every frame, and
+// updateSky owns the light's colour and strength in both
+// modes — nothing here leaks into play.
+const MENU_SUNLIGHT_DIST = 528, MENU_SUNLIGHT_ELEV = 30 * Math.PI / 180;
+const MENU_SUNLIGHT_Y = Math.round(MENU_SUNLIGHT_DIST * Math.tan(MENU_SUNLIGHT_ELEV));
 let menuSunLightOn = false, menuSunLightPos = null;
 function applyMenuSunLight() {
   if (!menuSunLightPos) {
