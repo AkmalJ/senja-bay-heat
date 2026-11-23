@@ -438,6 +438,7 @@ function settleCorpse(mesh) {
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = 0.22;
   if (mesh.userData.gun) mesh.userData.gun.visible = false;
+  if (mesh.userData.marker) mesh.userData.marker.visible = false;
 }
 const particles = [];
 const particleGeo = new THREE.SphereGeometry(0.1, 5, 5);
@@ -745,6 +746,16 @@ function updatePeds(dt) {
     let move = p.speed;
     const dPlayer = dist2d(p.pos, fp);
     if (p.hostile) {
+      // The red ▼ rides over an active hostile: visible while he
+      // is close enough to be part of the fight (he engages at
+      // 17 m; the tag fades in a little beyond that, so a gunman
+      // reads as a gunman while he closes), hidden the moment he
+      // dies (settleCorpse) or the player leaves him behind.
+      if (p.mesh.userData.marker) {
+        const mk = p.mesh.userData.marker;
+        mk.visible = dPlayer < 26;
+        mk.position.y = 2.42 + Math.sin(p.phase * 1.7) * 0.05;
+      }
       // Close in to range, then strafe and shoot.
       if (dPlayer > 17) { p.heading = Math.atan2(fp.x - p.pos.x, fp.z - p.pos.z); move = 4.6; }
       else {
@@ -755,9 +766,14 @@ function updatePeds(dt) {
           audio.shoot("smg");
           // Return fire wears the same signs as the player's — an orb
           // at his muzzle and a beam to the man he is shooting at —
-          // so a two-way fight reads from either side.
+          // so a two-way fight reads from either side. The hostile
+          // orb runs LARGE (v5.3, owner-ordered): at 0.55 the bloom
+          // never registered past a few metres — not in motion, not
+          // in a still — and a shootout whose return fire cannot be
+          // seen reads as one-way. 0.92 is still a muzzle flash,
+          // not a firework: a 0.085 s bloom at the barrel tip.
           const muzzle = new THREE.Vector3(-0.42, 1.35, 0.35).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
-          fireOrb(muzzle, 0.55, 0xffc9b0);
+          fireOrb(muzzle, 0.92, 0xffc9b0);
           fireBeam(muzzle, new THREE.Vector3(fp.x, 1.3, fp.z), true);
           burst(new THREE.Vector3(fp.x, 1.2, fp.z), 0xff6b81, 5, 2, 1.5, 1.6);
           if (S.inCar) damageCar(S.inCar, 2, null); else hurtPlayer(4);

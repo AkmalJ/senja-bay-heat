@@ -30,156 +30,137 @@ export function stageScene(name, api) {
       break;
     }
     case "market": {
-      // On-foot combat INSIDE the night market — v5.1 staging,
+      // On-foot combat INSIDE the night market — v5.3 staging,
       // in the widened market's aisle 2 (centre z = 109.75,
       // clear lane z ≈ 106.9–112.6 between the stall colliders).
       //
-      // THE LATERAL DUEL (owner's pinned reference: the Karimbu
-      // market frame). Every earlier staging fired DOWN the
-      // aisle with the camera on the shot line, so the fight
-      // receded into depth and the hero's back filled the frame.
-      // The reference does the opposite: the firing line is
-      // LATERAL — hero in back three-quarter, gun arm extended
-      // sideways in profile, the beam travelling horizontally
-      // across open ground, the corpse flat in the open directly
-      // under the beam line, crowd grouped in the same
-      // mid-ground plane, stalls framing both edges. Enemy,
-      // weapon and bullets all live in one readable plane.
-      //   * THE GEOMETRY: Raka stands in the lane's northern
-      //     half and fires due EAST along z = 109.0 (camOffset 0
-      //     while the trigger is held, so his staged heading,
-      //     his raised gun arm and the shot ray all agree).
-      //   * THE SWING: the duel is fired from the game's own
-      //     behind-the-back follow view; once the capture tool
-      //     freezes the fired moment (see THE FREEZE below), it
-      //     swings the camera around Raka to his gun side
-      //     (camOffset ≈0.78, ≈45°): south-west of him at
-      //     shoulder height, looking north-east across the
-      //     lane. In staging the pointer never locks, so Raka's
-      //     heading and firing pose hold while camYaw lerps to
-      //     its new target — what turns is the camera, never
-      //     the actor. From there he reads in back three-quarter
-      //     profile, gun arm extended across the frame; the
-      //     frozen beam runs over the corpse to the far man;
-      //     the north stalls become the backdrop wall. THE
-      //     CAMERA'S LIMIT, measured: a full 90° profile swing
-      //     parks the camera due south, and from 4.2 m back a
-      //     target 5.8–6.6 m along the lane sits 41–53° off the
-      //     look axis — at or beyond the frame's edge and
-      //     behind the HUD's right column. ≈45° is the
-      //     strongest gun-side view the real follow camera
-      //     honestly holds with the whole duel in frame.
-      //   * ONE MAN DOWN, IN THE OPEN. The near man stands ON
-      //     the ray 4.5 m out. A hostile stands his ground
-      //     facing Raka (updatePeds), and the corpse settle tips
-      //     him TOWARD his facing — his body comes to rest along
-      //     the ~1.9 m of open floor between his feet and Raka,
-      //     directly under the continuing beam line. The range
-      //     was 3.2 m in the first lateral staging and the swung
-      //     camera LOST the body entirely: settled at Raka's
-      //     feet, it hid under his silhouette and the frame's
-      //     lower edge. At 4.5 m the body spans ~2.6–4.5 m out —
-      //     clear of the hero, mid-frame, the Karimbu
-      //     arrangement of a body flat in open ground under the
-      //     beam. He wears the gang purple without the vest:
-      //     face-up, the bare shirt is what keeps the body
-      //     readable — the near-black vest swallowed an earlier
-      //     corpse whole.
-      //   * THE STANDING TARGET: the far man on the same ray
-      //     5.4 m out, backed against the north stall fronts
-      //     with a painted sign behind him and a gap in the
-      //     crowd on both sides, so the frozen burst on his
-      //     torso has nothing to blend into. Behind him the
-      //     gang stands in ECHELON along the stall fronts —
-      //     two more Kerang Boys at ~7.4 m and ~5.6 m, stepped
-      //     off the ray (1.4 m north, 2.5 m south — outside
-      //     the ray test's 0.9 m pick radius, so Raka's fire
-      //     still walks near man → far man and never picks
-      //     them), each separated from the next by open
-      //     floor, so the frame reads as a gang shootout,
-      //     not a duel. His wingman covers from further east
-      //     along the north front — a fourth gun at the
-      //     frame's edge.
+      // THE CLEAN-WINDOW RECOMPOSITION (owner's verdict on the
+      // v5.2 frame, treated as spec): the shootout was barely
+      // visible — the enemy group landed at ~70–80% of frame
+      // width, inside the right HUD column, small and crowded
+      // out, and the return fire never read, so the frame
+      // played as one-way fire. The frame's CLEAN STAGE WINDOW
+      // — the band no HUD panel owns — is roughly 30–65% of
+      // width, vertical middle. This staging is composed
+      // inside it, and the composition was designed on a
+      // calibrated camera model before it was staged (model:
+      // follow cam 4.2 m back, HFOV ≈ 88.8°, swing = camOffset;
+      // bias-corrected against the measured v5.2 frame):
+      //   * SPREAD, NOT CLUSTER (the Brisa Bay lesson): the
+      //     gang stands as INDIVIDUALS across the window on
+      //     open lane floor, each with empty space around him —
+      //     a north firer at the window's left (~43%), a
+      //     north-mid holder (~55%), the primary target on the
+      //     ray (~59%) — not one pink mass at the frame's edge.
+      //     The spread is built from the CAMERA's bearings, not
+      //     from Raka's: north-side men sit nearer the swung
+      //     view axis and land central; anything south of the
+      //     ray is flung past 75% by the swing (measured: the
+      //     old south firer stood at ~91% — inside the weapon
+      //     panels — which is why his fire never read).
+      //   * RAKA FIGHTS FROM THE LANE'S SOUTH HALF (z = 110.2)
+      //     so the whole gang can stand NORTH of his ray, in
+      //     the open lane, with the north stall fronts as a
+      //     distant backdrop instead of a wall at their backs.
+      //   * THE LATERAL LINE stays: Raka fires due EAST
+      //     (camOffset 0 while the trigger is held), the beam
+      //     travels horizontally, and after the freeze the
+      //     capture tool swings the camera to his gun side.
+      //     The swing is pushed as far toward profile as the
+      //     duel staying inside the window allows — the casts
+      //     measure each stop in pixels and the largest swing
+      //     that keeps every enemy under 65% wins.
+      //   * ONE MAN DOWN, ISOLATED (the Karimbu lesson): the
+      //     near man stands on the ray 4.3 m out, 0.4 m north
+      //     of its line; his body settles toward Raka along
+      //     ~1.9 m of lane and comes to rest with NOTHING
+      //     within ~1.5 m of it — the primary's feet are 1.6 m
+      //     past his head, the fronts are ~2.8 m away, the
+      //     crowd pairs are metres off — a body alone in a lit
+      //     patch of open floor under the beam, not a shape
+      //     lost under legs or stall clutter. He wears the
+      //     gang purple without the vest: face-up, the bare
+      //     shirt is what keeps a body readable.
+      //   * RETURN FIRE IS CARRIED BY THE ORBS (the PCPD
+      //     lesson): three guns fire back in the reference
+      //     frames and what reads is a big glowing orb at each
+      //     enemy muzzle, the beam as support. Two firers are
+      //     cued by the capture tool at the freeze: the primary
+      //     (his beam runs collinear with Raka's — one line
+      //     hides the other, cast36's evidence — so HIS read
+      //     is his orb and the burst he puts on Raka) and the
+      //     NORTH FIRER, 5.2 m out and 2.7 m north of the ray,
+      //     whose beam crosses the open lane at ~32° in plan —
+      //     a genuinely different angle, over lit floor, from
+      //     a muzzle the swing keeps at the window's left edge
+      //     where nothing crowds it. The hostile orb itself
+      //     now runs 0.92 in the game (v5.3): at the shipped
+      //     0.55 the bloom never registered in a still.
+      //   * THE RED ▼: every staged hostile wears the game's
+      //     own combat marker over his head (v5.3, in
+      //     actors.js/main.js — a real feature of normal play,
+      //     not staging paint): three small red triangles over
+      //     three spread gunmen is the direct answer to
+      //     "the enemies are covered, I can't see them".
       //   * THE CROWD frames the duel from the same plane:
-      //     pinned pairs along both stall fronts, west and east
-      //     of the fight, none within 1.2 m of the ray and none
-      //     crossing the sightline; two unpinned reactors flee
-      //     when the shooting starts, the game's own panic.
+      //     pinned pairs along both stall fronts, west and
+      //     east of the fight, none within 1.5 m of the corpse
+      //     patch and none crossing the sightline; two
+      //     unpinned reactors flee when the shooting starts.
       //   * THE FREEZE. The tracer lives 0.09 s — no grab can
       //     catch it live — so the capture tool fires the duel
-      //     for real, then freezes the effects at the far man's
-      //     first hit through the STAGE-only setFxFreeze handle:
-      //     beam, muzzle orb, impact burst and the retuned wisp
-      //     of dust hang at full brightness in one still while
-      //     the aisle keeps living around them.
+      //     for real, then freezes the effects at the primary's
+      //     first hit through the STAGE-only setFxFreeze
+      //     handle: every beam and orb fired inside the window
+      //     (Raka's outbound, both firers' inbound, all three
+      //     muzzle blooms) hangs at full brightness in one
+      //     still while the aisle keeps living around them.
       //   * NO POLICE LIGHT IN THE FRAME. The dispatch panel
       //     may list its units — the capture tool holds the
-      //     response cars at bay for the length of the duel,
-      //     so no cone or pool ever crosses the shot.
-      //   * TWO-WAY FIRE. The fight is not a duel: the far
-      //     man and the south man shoot back. The capture
-      //     tool keeps every staged gun silent while the
-      //     scene settles, then — at the moment it freezes
-      //     the far man's first hit — cues those two to fire
-      //     (their own shootCd, their own muzzles), so the
-      //     frozen still holds Raka's beam outbound and their
-      //     red tracers inbound in the same instant. Nothing
-      //     about their fire is drawn by hand: it is the
-      //     game's own hostile fire, timed, not faked. The
-      //     south man is the one whose tracer READS: the far
-      //     man's return beam runs collinear with Raka's own
-      //     (same line, opposite directions — one line hides
-      //     the other, cast36's evidence), and a firer at the
-      //     lane's far end crosses at too shallow an angle to
-      //     separate from it in a still (cast37's evidence:
-      //     ~17° in plan, and the hostile tracer is a 5 cm
-      //     salmon line by design). So the second firer
-      //     stands across the lane AND close — 5.6 m out,
-      //     2.5 m south of the ray — and his beam crosses at
-      //     ~27° in plan, at a range where his muzzle orb
-      //     and tracer are at their largest in frame.
-      // Clock 19.7: the late edge of the locked senja — the
-      // sky keeps its ember band, the stall walls sit in
-      // canopy shade, and the lamps, the lit sign faces and
-      // the gunfire are the frame's brightest things.
+      //     response cars at bay for the length of the duel.
+      // Clock 19.7 at staging (the HUD reads ~19:49 by the
+      // capture): the late edge of the locked senja — lamps,
+      // lit sign faces and gunfire are the frame's brightest
+      // things.
       api.setClock(19.7);
       api.setStats({ money: 7270, respect: 940, health: 100, armor: 80 });
       api.startJobAt(1, 1);                    // clear-the-aisles stage (spawns hostiles)
-      api.placeOnFoot(-241.5, 109.0, Math.PI / 2); // aisle 2's west stretch, firing due east along the lane
+      api.placeOnFoot(-241.5, 110.2, Math.PI / 2); // aisle 2's south half, firing due east along z = 110.2
       api.setCamOffset(0);
-      // The fight, all of it on the east ray out of
-      // (−241.5, 109.0): the near man 4.5 m out at (−237.0,
-      // 109.0) — he is the kill, and his body settles flat in
-      // the open under the beam line, clear of Raka's
-      // silhouette; the far man 5.9 m out at (−235.6, 109.0)
-      // — he is the standing target the frozen burst lands
-      // on, in front of the north row's stall at x ≈ −233.5,
-      // its hanging sign as his backdrop, with open floor
-      // between the corpse's head and his feet. The ranges
-      // stay tight on purpose: the follow camera is fixed
-      // 4.2 m back and looks AT Raka, so from the swung
-      // gun-side view every metre of duel length costs ~5° of
-      // frame — at 6.6 m the target slid to 79% of the width,
-      // behind the HUD's right column and with his head inside
-      // the weapon panels; at 5.4 m he stood at ~69%, and
-      // 5.9 m buys the corpse its room for ~3 points more.
-      // His wingman covers from the same front further east,
-      // a separate figure in his own space. Between the far
-      // man and the wingman, the echelon: two more Kerang
-      // Boys along the stall fronts — one stepped north of
-      // the ray, bare-shirted so he pops against the shaded
-      // fronts at his range, and one across the lane on the
-      // south front, vested. The south man is a cued
-      // return-firer like the far man (his cross-lane
-      // diagonal is the inbound tracer that reads — see
-      // TWO-WAY FIRE above); the north man and the wingman
-      // hold their fire for the frozen instant (not every
-      // gun in a gang fires in the same tenth of a second).
-      api.addPed(-237.0, 109.0, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(-235.6, 109.0, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-234.2, 107.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(-236.5, 111.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-229.5, 107.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // The fight, relative to Raka at (−241.5, 110.2):
+      //   near man (+4.3, +0.1) at (−237.2, 110.3) — the kill;
+      //     his body settles west along the lane into its own
+      //     empty patch under the beam (a hair south of the
+      //     ray line, so the north-mid's legs stay off it from
+      //     the swung camera).
+      //   primary (+5.9, −0.8) at (−235.6, 109.4) — the
+      //     standing target Raka's frozen burst lands on, a
+      //     cued return-firer; 0.8 m north of the ray line is
+      //     inside the ray test's 0.9 pick tolerance, so
+      //     Raka's fire still walks near man → primary.
+      //   north firer (+5.7, −2.7) at (−235.8, 107.5) —
+      //     the diagonal return-firer; 2.7 m off the ray, so
+      //     Raka's fire never picks him; his own beam crosses
+      //     the lane at ~28°.
+      //   north-mid (+7.9, −2.7) at (−233.6, 107.5) — the
+      //     third standing gun, holding his fire for the
+      //     frozen instant, stepped between the firer and the
+      //     primary in depth so the three read as individuals.
+      //   (Bearing fit, calibrated on two casts of this
+      //     composition: x% ≈ 50.7 + 0.72·Δθ, Δθ = a man's
+      //     bearing from the CAMERA minus the view axis's.
+      //     The trap it exposed: a man standing ON the axis
+      //     bearing (Δθ ≈ 0) projects onto Raka's silhouette
+      //     and vanishes behind him — the firer's first two
+      //     spots sat within 2° of the axis at their swings.
+      //     The landed swing is ~0.65, which puts the firer
+      //     at Δθ ≈ +6° (~55%), north-mid ~+12° (~59%), the
+      //     primary ~+18° (~63%) — spread, clear of the hero,
+      //     and inside the window.)
+      api.addPed(-237.2, 110.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(-235.6, 109.4, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-235.8, 107.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(-233.6, 107.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // The crowd. api.addPed returns the ped, and pinning its
       // wander speed is what keeps a browser browsing his stall
       // for the whole capture: the game's shoppers walk at up to
@@ -187,22 +168,22 @@ export function stageScene(name, api) {
       // earlier take lost its target behind a wanderer who
       // strolled into the sightline and stood there.
       const shopper = (x, z, speed) => { const p = api.addPed(x, z, {}); if (p) p.speed = speed; };
-      // North-front pairs, west and east of the fight, in the
-      // duel's own plane (the far man's backdrop gap stays his):
+      // North-front pairs, west and east of the fight:
       shopper(-248.5, 107.6, 0.3);
       shopper(-247.2, 107.7, 0.35);
       shopper(-229.8, 107.6, 0.35);
       shopper(-228.5, 107.7, 0.3);
       // South-front pairs — foreground framing at the swung
-      // camera's flanks, clear of its sightline cone:
-      shopper(-249.5, 111.6, 0.3);
-      shopper(-248.2, 111.7, 0.35);
-      shopper(-232.5, 111.6, 0.35);
-      shopper(-231.2, 111.7, 0.3);
+      // camera's flanks, clear of its sightline cone and of
+      // the corpse patch:
+      shopper(-249.5, 112.3, 0.3);
+      shopper(-248.2, 112.4, 0.35);
+      shopper(-231.5, 112.3, 0.35);
+      shopper(-230.2, 112.4, 0.3);
       // Reactors inside the panic radius — already running when
       // the first shot lands:
-      api.addPed(-252, 109.4, {});
-      api.addPed(-227, 110.4, {});
+      api.addPed(-252, 110.8, {});
+      api.addPed(-226.5, 111.5, {});
       // A shopper's scooter parked in the crossroads south of
       // the aisle's east stretch; the HUD's package count is
       // set to the beach and pier finds, so the market's own

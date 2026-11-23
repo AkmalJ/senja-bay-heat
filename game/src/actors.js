@@ -216,6 +216,25 @@ export function buildPersonMesh(opts = {}) {
     const gun = box(0.08, 0.12, 0.55, MAT.black, -0.42, 1.3, 0.3, g);
     g.userData.gun = gun;
   }
+  if (opts.hostile) {
+    // Combat marker (v5.3): a small red ▼ floating over an active
+    // hostile's head — the reference games tag every gunman this
+    // way, and it answers the owner's longest-running screenshot
+    // complaint: enemies the eye cannot find in the frame. Basic
+    // material so it stays red at dusk. updatePeds owns when it
+    // shows (an engaged hostile, never a corpse, never a
+    // bystander) and its gentle bob; it starts hidden.
+    const tri = new THREE.Mesh(
+      new THREE.ConeGeometry(0.17, 0.42, 4),
+      new THREE.MeshBasicMaterial({ color: 0xff2d2d })
+    );
+    tri.rotation.x = Math.PI;        // apex down
+    tri.rotation.y = Math.PI / 4;    // diamond face to the viewer
+    tri.position.y = 2.42;
+    tri.visible = false;
+    g.add(tri);
+    g.userData.marker = tri;
+  }
   if (opts.vest) box(0.66, 0.5, 0.38, new THREE.MeshLambertMaterial({ color: 0x243447 }), 0, 1.18, 0, g);
   // Slight height variety across the crowd.
   g.scale.y = opts.height ?? (0.93 + Math.random() * 0.13);
