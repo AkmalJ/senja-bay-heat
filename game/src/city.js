@@ -397,9 +397,14 @@ export class City {
         }
       }
     }
-    // Parking bay ticks: a short line every bay along both kerbs.
-    for (let z = -273; z <= 273; z += 7.8) {
-      stripe(276, z, 3.2, 0.24);
+    // Parking bay ticks along the strand kerbs — ONE side only,
+    // per the owner's clearest title annotation: the west kerb
+    // (x=276) wears no bay paint at all, and the east kerb's
+    // (x=294) cells are drawn snug: 6.0 m pitch (was a loose 7.8
+    // that left every parked car floating in an empty box), with
+    // the tick offset chosen so cell centres land on the parked
+    // row itself (east cars sit at z = -250 + 30k).
+    for (let z = -253; z <= 271; z += 6.0) {
       stripe(294, z, 3.2, 0.24);
     }
     for (let x = -266; x <= 266; x += 7.8) {

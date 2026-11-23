@@ -183,19 +183,42 @@ spawnCar(6, -160, 152, 1.2, "parked");
 spawnCar(6, -238, -256, 0.7, "parked");
 spawnCar(6, 297, -120, Math.PI, "parked");
 // ---------- the owner's hand marks on the title poster ----------
-// His annotated sys-title10 frame, one revision, vehicles only.
-// Each stroke was projected through the menu camera and PCA-fitted
-// in world space: blue 1.713 (the foreground boulevard pair),
-// yellow 1.516 (the pair up by the crosswalk), red 0.305 (two cars
-// he added on the z=190 street in front of the cargo). The marked
-// cars face exactly those headings — mesh rotation included:
-// spawnCar never rotated a parked mesh, so a heading change alone
-// changed nothing on screen (the owner's repeated "still wrong"
-// verdicts across two rounds were this, not the heading values).
-// Each car keeps its spot, nudged the minimum east/west so the
-// rotated footprint stays wholly on the asphalt, and is flagged
-// ownerMark so the menu traffic treatment presents it at the
-// marked heading instead of hiding it for facing against the flow.
+// His clearest annotation yet (circles on the sys-title11 frame,
+// identified by projecting every parked car in the frame and
+// matching colour-for-colour) decoded the six marked cars into
+// three different roles — the rounds that treated them as one
+// "face the stroke" problem kept missing because they aren't one
+// problem:
+//   RED Kijang Sprint (294, 170), yellow-circled: already right.
+//     It is the reference for good parking and keeps exactly the
+//     stance the stroke round gave it (heading 1.516, kerb inset
+//     -0.4) — nothing about it changes.
+//   BLUE Senja Coupe (276, 222), blue-circled: stays PARKED, but
+//     tidied to sit exactly like the reference — the reference's
+//     own heading (1.516) and its kerb inset mirrored (276.45),
+//     centred on its spot. (Its kerb's bay paint is gone now —
+//     city.js draws parking lines on the east side only.)
+//   The other three boulevard/street cars are DRIVING stances,
+//     not parking: noses with their lanes' flow, queued as if
+//     stopped at a red light.
+//     - DARK BLUE Senja Coupe (276, 162), yellow-circled: out of
+//       its bay into the west driving lane (x 281), heading PI
+//       (northbound), stopped on the approach side of the
+//       (285, 190) junction — nose at z 205.7, just short of the
+//       junction's south crosswalk band (z 201.7-205.1).
+//     - GREEN Angkot Van (294, 230), blue-circled: out of its
+//       bay into the east driving lane (x 289), heading 0
+//       (southbound), stopped on the junction's north approach —
+//       nose at z 174.3, just short of the north crosswalk band
+//       (z 174.9-178.3).
+//     - The RED pair he added on the z=190 street keep their
+//       spots (north lane z 186, south lane z 194) but now face
+//       their own lanes' flow instead of the red stroke's 0.305:
+//       north lane west (-PI/2), south lane east (+PI/2).
+// All six keep ownerMark so the menu traffic treatment presents
+// them (the two parked-stance cars face poster headings, not
+// their kerbs' flow; the four driving stances pass the facing
+// test on their own merits).
 function ownerFace(x, z, heading, nudgeX) {
   const car = cars.find((c) => c.kind === "parked" && c.pos.x === x && c.pos.z === z);
   if (!car) return;
@@ -204,20 +227,28 @@ function ownerFace(x, z, heading, nudgeX) {
   car.mesh.rotation.y = heading - Math.PI / 2;
   car.ownerMark = true;
 }
-ownerFace(276, 222, 1.713, 0.45);   // blue — foreground Senja Coupe, west kerb bay
-ownerFace(294, 230, 1.713, -0.95);  // blue — foreground Angkot Van, east kerb bay
-ownerFace(276, 162, 1.516, 0.4);    // yellow — Senja Coupe by the crosswalk, west kerb bay
-ownerFace(294, 170, 1.516, -0.4);   // yellow — Kijang Sprint by the crosswalk, east kerb bay
-// Red — two new parked cars where he circled them on the z=190
-// street: the upper mark centred in the road's north lane
-// (z = 186), the lower in its south lane (z = 194), both facing
-// the red stroke's heading. Clear of the junction mouth (their
-// east corners reach x 267.6, the boulevard starts at 274) and of
-// the cargo footprints (south corners reach z 196.5, cargo at 204.6).
-const redA = spawnCar(0, 265.9, 186, 0.305, "parked");
-redA.mesh.rotation.y = 0.305 - Math.PI / 2; redA.ownerMark = true;
-const redB = spawnCar(5, 255.4, 194, 0.305, "parked");
-redB.mesh.rotation.y = 0.305 - Math.PI / 2; redB.ownerMark = true;
+function ownerDrive(x, z, laneX, stopZ, heading) {
+  const car = cars.find((c) => c.kind === "parked" && c.pos.x === x && c.pos.z === z);
+  if (!car) return;
+  car.pos.x = laneX;
+  car.pos.z = stopZ;
+  car.heading = heading;
+  car.mesh.rotation.y = heading - Math.PI / 2;
+  car.ownerMark = true;
+}
+ownerFace(294, 170, 1.516, -0.4);   // yellow — RED Kijang Sprint, the reference: unchanged
+ownerFace(276, 222, 1.516, 0.45);   // blue — Senja Coupe, parked exactly like the reference
+ownerDrive(276, 162, 281, 208.1, Math.PI); // yellow — dark blue Senja Coupe, northbound, stopped at the light
+ownerDrive(294, 230, 289, 171.4, 0);       // blue — GREEN Angkot Van, southbound, stopped at the light
+// Red — the two cars he added on the z=190 street, in its lanes
+// (north z = 186, south z = 194), each facing its lane's flow.
+// Clear of the junction mouth (east corners reach x 267.6, the
+// boulevard starts at 274) and of the cargo footprints (south
+// corners reach z 196.5, cargo at 204.6).
+const redA = spawnCar(0, 265.9, 186, -Math.PI / 2, "parked");
+redA.mesh.rotation.y = -Math.PI / 2 - Math.PI / 2; redA.ownerMark = true;
+const redB = spawnCar(5, 255.4, 194, Math.PI / 2, "parked");
+redB.mesh.rotation.y = Math.PI / 2 - Math.PI / 2; redB.ownerMark = true;
 // Rolling traffic.
 for (let i = 0; i < 18; i++) {
   const lines = roadLines();
