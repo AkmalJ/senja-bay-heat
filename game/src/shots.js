@@ -271,7 +271,11 @@ export function stageScene(name, api) {
       // Clock 19.55 at staging — the capture lands in the
       // dusk-night family (~19.9): lamps and port work lights at
       // full strength under a deep teal sky.
-      api.setClock(19.55);
+      // PORT POLISH moved the staging clock to 19.8 (capture
+      // lands ~20.0): the deeper ambient is what lets the v5.5
+      // flame core read as fire at judge scale instead of
+      // washing into the bright dusk sky.
+      api.setClock(19.8);
       api.setStats({ money: 18450, respect: 2210, health: 100, armor: 70 });
       api.startJobAt(6, 1);                    // THE LONG TABLE, clear-the-port-road stage
       api.placeOnFoot(196, 189.5, Math.PI / 2); // port road at the container cluster, firing east

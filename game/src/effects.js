@@ -6,7 +6,11 @@
 
 import * as THREE from "three";
 
-const POOL_SIZE = 160;
+// 280 since the v5.5 fire pass: one burning car now holds ~150
+// particles alive (tongues + bright core + smoke cap), and the
+// pool is shared with tire smoke and dust — at 160 a second
+// wreck started eating the first one's flames mid-flight.
+const POOL_SIZE = 280;
 
 export class Effects {
   constructor(scene) {

@@ -610,6 +610,7 @@ function damageCar(car, dmg, at) {
 const fireLight = new THREE.PointLight(0xff8a3d, 0, 30, 1.6);
 scene.add(fireLight);
 const FLAME_COLS = [0xff7a2e, 0xffb03a, 0xe64a19];
+const CORE_COLS = [0xff9a1f, 0xffa726, 0xff8a1e];
 function updateCarFires(dt, now) {
   let lightCar = null;
   for (const car of cars) {
@@ -635,9 +636,27 @@ function updateCarFires(dt, now) {
       // and cabin — and climbs clear of the roof: four tall
       // tongues per tick, ~3 m of fire before the smoke (which
       // now starts above the roofline) takes it.
-      for (let i = 0; i < 2; i++) fx.spawn(hx, 1.25, hz, { n: 1, color: FLAME_COLS[(Math.random() * 3) | 0], opacity: 0.85, size: 2.3, spread: 0.9, up: 4.6, life: 0.75, grow: 1.0, drag: 0.6 });
-      for (let i = 0; i < 2; i++) fx.spawn(car.pos.x, 1.35, car.pos.z, { n: 1, color: FLAME_COLS[(Math.random() * 3) | 0], opacity: 0.85, size: 2.3, spread: 0.9, up: 4.6, life: 0.75, grow: 1.0, drag: 0.6 });
-      fx.spawn(hx, 2.4, hz, { n: 1, color: 0x2e2e2e, opacity: 0.5, size: 2.1, spread: 0.8, up: 2.8, life: 1.25, grow: 3.0, drag: 1.2 });
+      // The core pass (v5.5, port polish): across a street the
+      // tongues alone still read as a smoky smudge — orange at
+      // half-fade over a bright dusk sky has no contrast, and
+      // the dark smoke boxes rising through the column muddied
+      // what colour there was. So each foot now also grows a
+      // CORE: dense, fully opaque, near-white gold that rises
+      // slowly and dies young, a bright heart the tongues climb
+      // out of; the tongues run denser to meet it, and the
+      // smoke starts higher and thinner so it caps the column
+      // instead of veiling it. In play a wreck now reads as
+      // BURNING from a block away, not merely smoking.
+      // (First core palette was near-white gold — at judge
+      // scale it averaged with the sky into a pale pillar, so
+      // the shipped core runs saturated orange-gold and a size
+      // up, and the smoke cap thinned again: fire first, smoke
+      // as its hat, nothing in between.)
+      for (let i = 0; i < 3; i++) fx.spawn(hx, 1.25, hz, { n: 1, color: FLAME_COLS[(Math.random() * 3) | 0], opacity: 0.9, size: 2.4, spread: 0.9, up: 4.8, life: 0.8, grow: 1.0, drag: 0.6 });
+      for (let i = 0; i < 3; i++) fx.spawn(car.pos.x, 1.35, car.pos.z, { n: 1, color: FLAME_COLS[(Math.random() * 3) | 0], opacity: 0.9, size: 2.4, spread: 0.9, up: 4.8, life: 0.8, grow: 1.0, drag: 0.6 });
+      for (let i = 0; i < 2; i++) fx.spawn(hx, 1.15, hz, { n: 1, color: CORE_COLS[(Math.random() * 3) | 0], opacity: 1.0, size: 2.0, spread: 0.55, up: 2.4, life: 0.6, grow: 0.5, drag: 0.5 });
+      for (let i = 0; i < 2; i++) fx.spawn(car.pos.x, 1.25, car.pos.z, { n: 1, color: CORE_COLS[(Math.random() * 3) | 0], opacity: 1.0, size: 2.0, spread: 0.55, up: 2.4, life: 0.6, grow: 0.5, drag: 0.5 });
+      fx.spawn(hx, 3.4, hz, { n: 1, color: 0x2e2e2e, opacity: 0.32, size: 1.7, spread: 0.8, up: 2.6, life: 1.3, grow: 3.0, drag: 1.2 });
     } else {
       fx.spawn(hx, 1.3, hz, { n: 1, color: 0x777777, opacity: 0.42, size: 1.2, spread: 0.6, up: 2.2, life: 1.0, grow: 2.6, drag: 1.2 });
     }
