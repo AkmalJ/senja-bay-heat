@@ -1089,6 +1089,82 @@ function restoreMenuVista() {
   menuVistaOn = false;
 }
 
+// ---------- title-screen setting sun ----------
+// One more menu-only touch, same contract as the clouds, the
+// grade and the vista (applied while the menu is up, restored
+// whole the moment play starts; gameplay never sees it). The
+// game's own sun disc rides in the west (city.js buildSky:
+// (-560, 105, -880), aimed at the city) — behind the menu
+// camera, which looks east across the bay, so the poster has
+// always had the senja's light without its source. While the
+// menu is up the disc is borrowed and hung low over the bay
+// in the frame's bright right sector: about 20 degrees right
+// of the vista axis at the disc's home distance, its centre
+// a degree above the horizon so the lower rim kisses the
+// waterline, grown a third so it anchors the poster's empty
+// sky. Behind it a soft additive glow; beneath it a glitter
+// path laid on the calmed water along the sun's azimuth,
+// brightening toward the sun the way a real reflection does.
+// On play the disc goes home to the exact metre and heading
+// it was built with and the glow and path hide — the sky in
+// game is the locked senja again, untouched.
+const MENU_SUN = { x: 1149, y: 64, z: -126, scale: 1.35 };
+let menuSunOn = false, menuSunParts = null;
+function buildMenuSun() {
+  const disc = city.skyDome.userData.sunDisc;
+  const glowC = document.createElement("canvas"); glowC.width = glowC.height = 256;
+  const gg = glowC.getContext("2d");
+  const grad = gg.createRadialGradient(128, 128, 8, 128, 128, 128);
+  grad.addColorStop(0, "rgba(255,196,120,0.85)"); grad.addColorStop(0.35, "rgba(255,158,84,0.38)");
+  grad.addColorStop(1, "rgba(255,140,70,0)");
+  gg.fillStyle = grad; gg.fillRect(0, 0, 256, 256);
+  const glowTex = new THREE.CanvasTexture(glowC); glowTex.colorSpace = THREE.SRGBColorSpace;
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(360, 360),
+    new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  glow.visible = false; scene.add(glow);
+  const pathC = document.createElement("canvas"); pathC.width = 256; pathC.height = 64;
+  const pg = pathC.getContext("2d");
+  const img = pg.createImageData(256, 64);
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 256; x++) {
+    const u = x / 255, v = Math.abs(y - 31.5) / 31.5;
+    const a = Math.pow(1 - v, 1.6) * (0.34 + 0.86 * u);
+    const i = (y * 256 + x) * 4;
+    img.data[i] = 255; img.data[i + 1] = 178; img.data[i + 2] = 96; img.data[i + 3] = Math.max(0, Math.min(1, a)) * 255;
+  }
+  pg.putImageData(img, 0, 0);
+  const pathTex = new THREE.CanvasTexture(pathC); pathTex.colorSpace = THREE.SRGBColorSpace;
+  const pathGeo = new THREE.PlaneGeometry(520, 74); pathGeo.rotateX(-Math.PI / 2);
+  const path = new THREE.Mesh(pathGeo,
+    new THREE.MeshBasicMaterial({ map: pathTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  // The path runs along the sun's azimuth (0.934, -0.357 in xz,
+  // away from the poster camera), centred mid-bay at (644, 67).
+  path.position.set(644, 0.09, 67); path.rotation.y = 0.365;
+  path.visible = false; scene.add(path);
+  menuSunParts = { disc, home: disc.position.clone(), glow, path };
+}
+function applyMenuSun() {
+  if (!menuSunParts) buildMenuSun();
+  const { disc, glow, path } = menuSunParts;
+  disc.position.set(MENU_SUN.x, MENU_SUN.y, MENU_SUN.z);
+  disc.scale.setScalar(MENU_SUN.scale);
+  disc.lookAt(camera.position);
+  disc.material.color.setHex(0xffb347);   // saturated gold: pale colours blow out to white through the grade, ember sank dark — this holds its warmth
+  glow.position.copy(disc.position).addScaledVector(
+    cloudScratch.subVectors(disc.position, camera.position).normalize(), 25);
+  glow.lookAt(camera.position);
+  glow.visible = true; path.visible = true;
+  menuSunOn = true;
+}
+function restoreMenuSun() {
+  if (!menuSunOn) return;
+  const { disc, home, glow, path } = menuSunParts;
+  disc.position.copy(home);
+  disc.scale.setScalar(1);
+  disc.lookAt(0, 40, 0);   // the heading buildSky built it with
+  glow.visible = false; path.visible = false;
+  menuSunOn = false;
+}
+
 // ---------- camera, light, day cycle ----------
 function updateCamera(dt) {
   // Title-screen panorama (v5, fixed): the first frame of the
@@ -1124,11 +1200,13 @@ function updateCamera(dt) {
     sun.target.position.set(MENU_POSE.lx, MENU_POSE.ly, MENU_POSE.lz);
     applyMenuClouds();
     applyMenuVista();
+    applyMenuSun();
     if (!menuGradeOn) { renderer.toneMappingExposure = 1.36; menuGradeOn = true; }
     return;
   }
   restoreMenuClouds();
   restoreMenuVista();
+  restoreMenuSun();
   if (menuGradeOn) { renderer.toneMappingExposure = 1.12; menuGradeOn = false; }
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;
@@ -1196,8 +1274,11 @@ function updateSky() {
   sun.color.setHex(day > 0.55 ? 0xffdca6 : 0xffb37a);
   hemi.intensity = 0.72 + day * 0.25;
   // The sun disc rides low on the dome and burns ember all day,
-  // deepest as the dusk band peaks.
-  if (city.skyDome && city.skyDome.userData.sunDisc) {
+  // deepest as the dusk band peaks. (While the title screen's
+  // setting-sun treatment holds the disc, it owns the colour —
+  // the ember burn is too dark against the poster's bright
+  // horizon band and the borrowed sun read as an eclipse.)
+  if (city.skyDome && city.skyDome.userData.sunDisc && !menuSunOn) {
     city.skyDome.userData.sunDisc.material.color.setHex(0xfff2c0).lerp(EMBER, 0.35 + dusk * 0.55);
   }
   // Lamps and work lights belong to the senja: they are on for the
