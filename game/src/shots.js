@@ -89,10 +89,17 @@ export function stageScene(name, api) {
       //     5.4 m out, backed against the north stall fronts
       //     with a painted sign behind him and a gap in the
       //     crowd on both sides, so the frozen burst on his
-      //     torso has nothing to blend into. His wingman covers
-      //     from further east along the same front, 1.4 m clear
-      //     of the ray (outside the ray test's 0.9 m pick
-      //     radius) — gang context, never a twin by the target.
+      //     torso has nothing to blend into. Behind him the
+      //     gang stands in ECHELON along the stall fronts —
+      //     two more Kerang Boys at ~7.4 m and ~5.6 m, stepped
+      //     off the ray (1.4 m north, 2.5 m south — outside
+      //     the ray test's 0.9 m pick radius, so Raka's fire
+      //     still walks near man → far man and never picks
+      //     them), each separated from the next by open
+      //     floor, so the frame reads as a gang shootout,
+      //     not a duel. His wingman covers from further east
+      //     along the north front — a fourth gun at the
+      //     frame's edge.
       //   * THE CROWD frames the duel from the same plane:
       //     pinned pairs along both stall fronts, west and east
       //     of the fight, none within 1.2 m of the ray and none
@@ -108,9 +115,29 @@ export function stageScene(name, api) {
       //   * NO POLICE LIGHT IN THE FRAME. The dispatch panel
       //     may list its units — the capture tool holds the
       //     response cars at bay for the length of the duel,
-      //     and the staged hostiles' return fire is silenced
-      //     the same way, so no cone, pool or red beam ever
-      //     crosses the shot.
+      //     so no cone or pool ever crosses the shot.
+      //   * TWO-WAY FIRE. The fight is not a duel: the far
+      //     man and the south man shoot back. The capture
+      //     tool keeps every staged gun silent while the
+      //     scene settles, then — at the moment it freezes
+      //     the far man's first hit — cues those two to fire
+      //     (their own shootCd, their own muzzles), so the
+      //     frozen still holds Raka's beam outbound and their
+      //     red tracers inbound in the same instant. Nothing
+      //     about their fire is drawn by hand: it is the
+      //     game's own hostile fire, timed, not faked. The
+      //     south man is the one whose tracer READS: the far
+      //     man's return beam runs collinear with Raka's own
+      //     (same line, opposite directions — one line hides
+      //     the other, cast36's evidence), and a firer at the
+      //     lane's far end crosses at too shallow an angle to
+      //     separate from it in a still (cast37's evidence:
+      //     ~17° in plan, and the hostile tracer is a 5 cm
+      //     salmon line by design). So the second firer
+      //     stands across the lane AND close — 5.6 m out,
+      //     2.5 m south of the ray — and his beam crosses at
+      //     ~27° in plan, at a range where his muzzle orb
+      //     and tracer are at their largest in frame.
       // Clock 19.7: the late edge of the locked senja — the
       // sky keeps its ember band, the stall walls sit in
       // canopy shade, and the lamps, the lit sign faces and
@@ -137,9 +164,21 @@ export function stageScene(name, api) {
       // the weapon panels; at 5.4 m he stood at ~69%, and
       // 5.9 m buys the corpse its room for ~3 points more.
       // His wingman covers from the same front further east,
-      // a separate figure in his own space.
+      // a separate figure in his own space. Between the far
+      // man and the wingman, the echelon: two more Kerang
+      // Boys along the stall fronts — one stepped north of
+      // the ray, bare-shirted so he pops against the shaded
+      // fronts at his range, and one across the lane on the
+      // south front, vested. The south man is a cued
+      // return-firer like the far man (his cross-lane
+      // diagonal is the inbound tracer that reads — see
+      // TWO-WAY FIRE above); the north man and the wingman
+      // hold their fire for the frozen instant (not every
+      // gun in a gang fires in the same tenth of a second).
       api.addPed(-237.0, 109.0, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
       api.addPed(-235.6, 109.0, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-234.2, 107.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(-236.5, 111.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       api.addPed(-229.5, 107.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // The crowd. api.addPed returns the ped, and pinning its
       // wander speed is what keeps a browser browsing his stall
