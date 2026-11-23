@@ -379,10 +379,15 @@ export function buildHelicopterMesh() {
   rotor.position.y = 1.25; g.add(rotor);
   const tailRotor = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.8, 0.3), MAT.black);
   tailRotor.position.set(-6.5, 0.9, 0.35); g.add(tailRotor);
-  // Searchlight: a translucent cone plus a real spotlight.
+  // Searchlight: a translucent cone plus a real spotlight. The cone
+  // runs wide and bright (radius 8.5, opacity 0.27): at the old
+  // 7 / 0.16 the shaft washed out against the dusk sky in every
+  // still and most play, and Air One is a headline feature — its
+  // beam should be the first thing a screenshot of a 4-star chase
+  // shows, a solid column of light with a pool you can stand in.
   const cone = new THREE.Mesh(
-    new THREE.ConeGeometry(7, 26, 20, 1, true),
-    new THREE.MeshBasicMaterial({ color: 0xfff3b0, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide })
+    new THREE.ConeGeometry(8.5, 26, 20, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xfff3b0, transparent: true, opacity: 0.27, depthWrite: false, side: THREE.DoubleSide })
   );
   cone.position.y = -13.5; g.add(cone);
   const spot = new THREE.SpotLight(0xfff3b0, 0, 90, 0.32, 0.5, 0.6);

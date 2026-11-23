@@ -7,13 +7,23 @@ export function stageScene(name, api) {
   switch (name) {
     case "chase": {
       // Cover: golden-hour boulevard chase on the strand, air unit deployed.
-      api.setClock(16.35);
+      // Clock 18.38 at staging — the capture's frames carry it into
+      // the ember band's peak (~18.6), where the locked senja is
+      // deepest: amber horizon, teal sky, lamps lit, and Air One's
+      // searchlight cone reads against the darkening boulevard.
+      // (The old 16.35 staging rendered as pale midday blue — the
+      // one hour the senja lock was written to abolish.)
+      api.setClock(18.38);
       api.setStats({ money: 18450, respect: 1675, health: 72, armor: 55 });
       api.startJobAt(5, 1);                    // SIRENS AT DUSK, escape stage
       api.placeInCar("Pelo GT", 285, 22, Math.PI, 31); // heading north up the strand road
       // (car sits 8 m south of the z=30 palm row so no clipped crown
       // hangs into the top-right of the frame)
-      api.setCamOffset(-0.42);
+      // Cam offset is a whisper, not a swing: at -0.42 the view axis
+      // cut ~24° across the boulevard and the beach swallowed the
+      // frame's right third; -0.15 keeps the road running away under
+      // Air One's cone with the promenade as a border, not a subject.
+      api.setCamOffset(-0.15);
       api.setWanted(4, true);
       api.spawnChasePack(4, 16);
       api.deployHelicopter();
