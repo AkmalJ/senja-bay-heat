@@ -1001,23 +1001,65 @@ function updatePlayer(dt) {
   audio.setEngine(false, 0, 0);
 }
 
+// ---------- title-screen clouds ----------
+// The poster's sky gets its own treatment (owner's word): the
+// world cloud clusters — chunky rings of puffs that read fine at
+// gameplay distance — hang over the title as donuts, so while the
+// menu is up, any cluster inside the panorama's view cone is
+// hidden and the rest shrink to a little over half size. The
+// moment play starts the sky is restored whole; gameplay never
+// sees any of this.
+let menuCloudsOn = false;
+const MENU_CAM_DIR = new THREE.Vector3(-280, -34, -20).normalize();   // the menu lookAt axis below
+const cloudScratch = new THREE.Vector3();
+function applyMenuClouds() {
+  const clouds = city.skyDome.userData.clouds || [];
+  for (const c of clouds) {
+    cloudScratch.subVectors(c.position, camera.position);
+    const ang = cloudScratch.angleTo(MENU_CAM_DIR) * 180 / Math.PI;
+    if (ang < 58) c.visible = false;
+    else { c.visible = true; c.scale.setScalar(0.55); }
+  }
+  menuCloudsOn = true;
+}
+function restoreMenuClouds() {
+  if (!menuCloudsOn) return;
+  for (const c of (city.skyDome.userData.clouds || [])) { c.visible = true; c.scale.setScalar(1); }
+  menuCloudsOn = false;
+}
+
 // ---------- camera, light, day cycle ----------
 function updateCamera(dt) {
-  // Title-screen panorama: while the poster is up, the camera
-  // drifts along the strand at rooftop height and looks west
-  // across the whole dusk town — the strand lamps below, the
-  // downtown towers, the market glow, the port cranes at the
-  // frame's edge. The sun rides with it so the long shadows rake
-  // the poster's town the same way they rake the game's.
+  // Title-screen panorama (v5 revision, owner's word): the first
+  // frame of the game is the strand, not a street canyon. The
+  // camera hangs over the bay at rooftop height and looks west
+  // across the Pantai Senja beachfront: the boulevard runs
+  // diagonally out of the lower frame — palm row and lamp spine
+  // along the kerb, parked cars in the bays, traffic rolling the
+  // road — beach umbrellas and benches scattered on the sand to
+  // the right, the open park strip in the middle ground, and the
+  // downtown towers standing as a skyline in the senja haze
+  // behind, small enough to be a backdrop and not a canyon. The
+  // poster's scrim darkens the left of the frame, so the
+  // wordmark sits over sky and skyline while the beachfront
+  // sells the town on the right. The pose was picked from
+  // rendered probes of the real vista, not guessed. The drift
+  // is a slow ±22 m sway along the shore so the composition
+  // holds at any phase of it, and a fresh camera snaps straight
+  // to the vista instead of flying in from the world origin.
   if (S.mode === "menu") {
     const t = performance.now() / 1000;
-    const cx = 352, cz = -40 + Math.sin(t * 0.045) * 95;
-    camera.position.lerp(new THREE.Vector3(cx, 27 + Math.sin(t * 0.1) * 2.5, cz), 1 - Math.pow(0.02, dt));
-    camera.lookAt(40, 2, -6);
-    sun.position.set(cx - 170, 52, cz - 80);
-    sun.target.position.set(40, 0, -6);
+    const cx = 430, cz = -10 + Math.sin(t * 0.045) * 22;
+    const target = new THREE.Vector3(cx, 34 + Math.sin(t * 0.1) * 1.5, cz);
+    if (camera.position.distanceTo(target) > 60) camera.position.copy(target);
+    camera.position.lerp(target, 1 - Math.pow(0.02, dt));
+    camera.lookAt(150, 0, -30);
+    sun.position.set(cx - 300, 58, cz - 170);
+    sun.target.position.set(150, 0, -30);
+    applyMenuClouds();
     return;
   }
+  restoreMenuClouds();
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;
   if (!pointerLocked) camYaw = angleLerp(camYaw, heading + Math.PI + S.camOffset, dt * (S.inCar ? 2.2 : 1.4));
@@ -1292,6 +1334,35 @@ if (STAGE) {
   setTimeout(() => { window.__senjaReady = true; }, 1400);
 }
 
+// ---------- ambient water ----------
+// The bay's swell and the boats that ride it. Shared by play and
+// by the title screen, whose panorama looks out over this water.
+function updateAmbientWater(now) {
+  if (city.sea) {
+    const pos = city.sea.geometry.attributes.position;
+    if (!city.sea.userData.base) city.sea.userData.base = Float32Array.from(pos.array);
+    const base = city.sea.userData.base, t = now / 1000;
+    for (let i = 0; i < pos.count; i++) {
+      pos.array[i * 3 + 2] = Math.sin(base[i * 3] * 0.055 + t * 1.25) * 0.3 + Math.cos(base[i * 3 + 1] * 0.045 + t * 0.85) * 0.26;
+    }
+    pos.needsUpdate = true;
+  }
+  if (city.boats) for (const b of city.boats) {
+    const o = b.userData.orbit;
+    if (o) {
+      // Under way: walk the boat around its circuit, bow into the
+      // direction of travel, wake ring breathing behind it.
+      const a = now / 1000 * o.sp + o.a;
+      b.position.x = o.x + Math.cos(a) * o.r;
+      b.position.z = o.z + Math.sin(a) * o.r;
+      b.rotation.y = o.sp > 0 ? -a - Math.PI / 2 : -a + Math.PI / 2;
+      if (b.userData.wake) b.userData.wake.scale.setScalar(1 + Math.sin(now / 320 + o.a) * 0.13);
+    }
+    b.position.y = 0.1 + Math.sin(now / 820 + b.userData.phase) * 0.2;
+    b.rotation.z = Math.sin(now / 970 + b.userData.phase) * 0.03;
+  }
+}
+
 // ---------- main loop ----------
 let last = performance.now();
 function frame(now) {
@@ -1363,29 +1434,7 @@ function frame(now) {
     }
     // Animated water: a slow vertex swell rolls across the bay, the
     // anchored boats ride it, and headlight pools fade up as it darkens.
-    if (city.sea) {
-      const pos = city.sea.geometry.attributes.position;
-      if (!city.sea.userData.base) city.sea.userData.base = Float32Array.from(pos.array);
-      const base = city.sea.userData.base, t = now / 1000;
-      for (let i = 0; i < pos.count; i++) {
-        pos.array[i * 3 + 2] = Math.sin(base[i * 3] * 0.055 + t * 1.25) * 0.3 + Math.cos(base[i * 3 + 1] * 0.045 + t * 0.85) * 0.26;
-      }
-      pos.needsUpdate = true;
-    }
-    if (city.boats) for (const b of city.boats) {
-      const o = b.userData.orbit;
-      if (o) {
-        // Under way: walk the boat around its circuit, bow into the
-        // direction of travel, wake ring breathing behind it.
-        const a = now / 1000 * o.sp + o.a;
-        b.position.x = o.x + Math.cos(a) * o.r;
-        b.position.z = o.z + Math.sin(a) * o.r;
-        b.rotation.y = o.sp > 0 ? -a - Math.PI / 2 : -a + Math.PI / 2;
-        if (b.userData.wake) b.userData.wake.scale.setScalar(1 + Math.sin(now / 320 + o.a) * 0.13);
-      }
-      b.position.y = 0.1 + Math.sin(now / 820 + b.userData.phase) * 0.2;
-      b.rotation.z = Math.sin(now / 970 + b.userData.phase) * 0.03;
-    }
+    updateAmbientWater(now);
     poolMat.opacity = darkness * 0.34;
     coneMat.opacity = darkness * 0.16;
     fx.update(fxFrozen ? 0 : dt);
@@ -1393,6 +1442,23 @@ function frame(now) {
     hud.update(dt, hudState());
     audio.music(dt, true);
     audio.setEngine(!!S.inCar, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0);
+  }
+  if (S.mode === "menu") {
+    // The poster's town is awake (owner's word): behind the title,
+    // traffic rolls the grid — the boulevard in the panorama
+    // included — the town strolls its pavements, the bay swells
+    // and the boats ride it, headlight pools lit. The same ambient
+    // systems as play, minus the player, the police and the
+    // missions. The crowd pass is guarded: hostiles only exist
+    // once a game has spawned them, and if any are standing the
+    // menu leaves the crowd alone rather than stage a gunfight
+    // behind the poster.
+    for (const car of cars) if (car.kind === "traffic") updateTraffic(car, dt);
+    if (!peds.some((p) => p.hostile && !p.dead)) updatePeds(dt);
+    updateAmbientWater(now);
+    poolMat.opacity = darkness * 0.34;
+    coneMat.opacity = darkness * 0.16;
+    fx.update(dt);
   }
   // The town board hangs over a held-still world: no simulation
   // runs while it is open, but the board itself redraws (the gold

@@ -138,6 +138,7 @@ export function buildSky(scene, rnd) {
   scene.add(sunDisc);
   dome.userData.sunDisc = sunDisc;
   const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffe9d2, transparent: true, opacity: 0.92 });
+  const clouds = [];
   for (let i = 0; i < 16; i++) {
     const cloud = new THREE.Group();
     const puffs = 3 + (rnd() * 3 | 0);
@@ -149,7 +150,13 @@ export function buildSky(scene, rnd) {
     }
     cloud.position.set((rnd() - 0.5) * 1500, 95 + rnd() * 70, (rnd() - 0.5) * 1500);
     scene.add(cloud);
+    clouds.push(cloud);
   }
+  // The title screen gives these a menu-only treatment in main.js
+  // (smaller, and the ones hanging over the panorama hidden); the
+  // list lives here so that pass can find them. Gameplay renders
+  // them exactly as built.
+  dome.userData.clouds = clouds;
   return dome;
 }
 
