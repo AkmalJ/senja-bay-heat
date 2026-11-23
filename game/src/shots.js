@@ -221,7 +221,9 @@ export function stageScene(name, api) {
       api.dialogue("Laras", "LOOKOUT — CREW", "They're dug into aisle two, Raka — drop the front man and the lane is ours before SBPD floods the crossroads.");
       break;
     }
-    case "port": {
+    case "port":
+    case "portshoulder": {
+      const SHOULDER = name === "portshoulder";
       // Dusk-night shootout at Pelabuhan. Three stagings taught
       // the geography the hard way: the apron is a featureless
       // slab (casts 53–55: fog void, flash disc, no backdrop),
@@ -271,6 +273,25 @@ export function stageScene(name, api) {
       api.startJobAt(6, 1);                    // THE LONG TABLE, clear-the-port-road stage
       api.placeOnFoot(196, 189.5, Math.PI / 2); // port road at the container cluster, firing east
       api.setCamOffset(0);
+      // THE SHOULDER VARIANT (?stage=portshoulder, owner's
+      // standing camera taste: "dari bahu" — from the shoulder).
+      // The camShoulder lever steps the follow camera and its
+      // aim point 1.3 m sideways together, so Raka slides to the
+      // frame's left third (measured centre 31.6, box 26.0-36.6)
+      // big in near-profile, and the gang re-fans in front of
+      // him along the wall toward a wreck moved to the line's
+      // east end (212.5, 200.5). The cast82 probes proved the
+      // full rule set is over-constrained — the primary is
+      // chained to the duel ray (perp < 0.9 of z = 189.5), and
+      // at swing -0.62 / shoulder 1.3 he lands at centre 23.7,
+      // clear of the hero (0.8 pts) but with his marker and
+      // bandana top grazing the dispatch panel's bottom edge
+      // (head y 44.9 vs panel bottom ~46.9 at pitch 0.04; every
+      // other combo buries him behind Raka or the panel
+      // outright). The fan therefore runs P, then M2-M5 arcing
+      // south-east in one line: measured centres ~40, 44, 48,
+      // 52, all complete, none behind the hero, all < 65.
+      if (SHOULDER) api.setCamShoulder(1.3);
       // THE ANGLE FIX (owner's review of the lively candidate:
       // "musuh malah ketutupan karakter kita" — the enemies are
       // covered by our own character). The cast77–79 probes
@@ -309,28 +330,32 @@ export function stageScene(name, api) {
       //     the line's near end big in the foreground south
       //     of the corpse patch, far outside the pick
       //     tolerance so the fire walk is untouched.
-      api.addPed(200.2, 189.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(203.3, 190.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(205.6, 191.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(208.7, 193.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      // Two extra unpinned reactors at the yard's east edge
-      // flee through the frame's depth when the shooting
-      // starts — crowd life at the edges, clear of the lanes.
-      api.addPed(206.7, 198.7, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(201.5, 196.1, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // The six staged gunmen: [x, z, vest]. In the shoulder
+      // variant the last four re-fan along the wall (see the
+      // SHOULDER note above); the first two never move — the
+      // near man is the on-ray kill and the primary is Raka's
+      // standing target, both chained to the duel ray.
+      const GANG = SHOULDER
+        ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.9, 194.6, false], [208.0, 197.2, true], [208.8, 199.8, false], [209.4, 202.2, true]]
+        : [[200.2, 189.9, false], [203.3, 190.3, true], [205.6, 191.9, false], [208.7, 193.9, true], [206.7, 198.7, false], [201.5, 196.1, true]];
+      for (const [gx, gz, vest] of GANG) api.addPed(gx, gz, { hostile: true, gun: true, shirt: 0x6c3483, vest });
       // Dockers pinned at the frame's edges and two unpinned
-      // reactors inside the panic radius.
+      // reactors inside the panic radius. In the shoulder
+      // variant the east dockers step past the re-fanned line
+      // so they stay crowd at the edge, not a seventh gunman.
       const docker = (x, z, speed, opts) => { const p = api.addPed(x, z, opts || {}); if (p) p.speed = speed; };
       docker(189, 185.5, 0.3, { cap: 0xf5c518 });
       docker(190.5, 186.5, 0.35, {});
-      docker(211.5, 198.5, 0.3, { cap: 0xe07a3f });
-      docker(213, 199.5, 0.35, {});
+      if (SHOULDER) { docker(216, 200.5, 0.3, { cap: 0xe07a3f }); docker(217.5, 201.5, 0.35, {}); }
+      else { docker(211.5, 198.5, 0.3, { cap: 0xe07a3f }); docker(213, 199.5, 0.35, {}); }
       api.addPed(192, 183.5, {});
       api.addPed(193, 196, {});
       api.addPed(218, 195, {});
       api.addPed(219.5, 191, {});
-      // The drama anchor and yard dressing.
-      api.parkCar("Kijang Sprint", 204, 197, 0.55);
+      // The drama anchor and yard dressing. In the shoulder
+      // variant the Kijang waits at the fan's east end.
+      if (SHOULDER) api.parkCar("Kijang Sprint", 212.5, 200.5, 0.55);
+      else api.parkCar("Kijang Sprint", 204, 197, 0.55);
       api.parkCar("Kargo Box Truck", 233, 201, 0.5);
       api.parkCar("Angkot Van", 194, 198, 0.8);
       api.selectWeapon("smg");

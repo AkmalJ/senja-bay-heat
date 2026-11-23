@@ -73,6 +73,7 @@ const S = {
   missionIndex: 0,
   paused: false,
   camOffset: 0,
+  camShoulder: 0,
 };
 
 // ---------- player ----------
@@ -1106,11 +1107,21 @@ function updateCamera(dt) {
   // too (v5): 9.6 m / 3.3 m up floated above the chase like a
   // drone; 8.2 m / 2.5 m sits in the car's wake at boot height,
   // the reference chase framing.
-  const dist = S.inCar ? 8.2 : 4.2, height = S.inCar ? 2.5 : 1.8;
+  const dist = S.inCar ? 8.2 : 4.2 - Math.min(0.75, (S.camShoulder || 0) * 0.5), height = S.inCar ? 2.5 : 1.8;
   const back = { x: Math.sin(camYaw) * Math.cos(camPitch), z: Math.cos(camYaw) * Math.cos(camPitch) };
-  const tx = fp.x + back.x * dist, tz = fp.z + back.z * dist;
+  // Staging-only over-shoulder lever (S.camShoulder, metres): the
+  // follow camera and its aim point step sideways by the same
+  // amount, so the view direction is unchanged but Raka slides
+  // out of the centre toward the frame's edge — the over-shoulder
+  // grammar the reference street scenes are shot in — and the
+  // follow dollies in a touch as the shoulder grows. Only ?stage=
+  // staging ever sets it (api.setCamShoulder); normal play keeps
+  // it 0 and every term below is inert.
+  const sh = S.inCar ? 0 : (S.camShoulder || 0);
+  const rx = Math.cos(camYaw) * sh, rz = -Math.sin(camYaw) * sh;
+  const tx = fp.x + back.x * dist + rx, tz = fp.z + back.z * dist + rz;
   camera.position.lerp(new THREE.Vector3(tx, fp.y + height + Math.sin(camPitch) * dist * 0.55, tz), 1 - Math.pow(0.0001, dt));
-  camera.lookAt(fp.x, fp.y + 1.6, fp.z);
+  camera.lookAt(fp.x + rx, fp.y + 1.6, fp.z + rz);
   // The senja sun rides LOW (v5): ~17 degrees up, far to the west —
   // long warm shadows raking across the streets at every hour, the
   // single strongest "it is always dusk here" cue the game has.
@@ -1309,6 +1320,7 @@ const api = {
     }
   },
   setCamOffset(v) { S.camOffset = v; },
+  setCamShoulder(v) { S.camShoulder = v; },
   setPackagesFound(n) { activities.setFound(n); },
   startRace(i) { activities.beginRace(i, true); },
   parkCar(modelName, x, z, heading) {
