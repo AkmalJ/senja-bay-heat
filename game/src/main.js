@@ -694,6 +694,18 @@ function updateTraffic(car, dt) {
     if (Math.abs(Math.sin(car.heading)) > 0.7) car.pos.x = nx + (Math.cos(car.heading) > 0 ? -4 : 4) * Math.sign(Math.sin(car.heading)) * 0 + car.pos.x * 0 + nx * 0 + car.pos.x, car.pos.z = nz + 4 * Math.sign(Math.cos(car.heading));
     else car.pos.x = nx + 4 * Math.sign(Math.sin(car.heading)), car.pos.z = car.pos.z;
   }
+  // The shore road east of the boulevard is gone (the (285, 190)
+  // junction is a T): eastbound traffic on that line turns onto the
+  // boulevard instead of crossing the beach, and anything already
+  // out on the sand leg turns back the way it came.
+  if (Math.abs(car.pos.z - 190) < 13 && f.x > 0.5) {
+    if (car.pos.x > 300) car.heading += Math.PI;
+    else if (car.pos.x > 264) {
+      const north = Math.random() < 0.5;
+      car.heading = north ? Math.PI : 0;
+      car.pos.x = north ? 281 : 289;
+    }
+  }
   // Keep to the road: if we drifted onto a block, steer back to the centreline.
   if (!isOnRoad(car.pos.x, car.pos.z)) {
     const tx = Math.abs(Math.sin(car.heading)) > 0.7 ? car.pos.x : nearestRoadCoord(car.pos.x);

@@ -336,14 +336,18 @@ export class City {
       for (const along of [0]) {
         const v = new THREE.Mesh(new THREE.PlaneGeometry(WORLD.roadHalf * 2, s), asphalt);
         v.rotation.x = -Math.PI / 2; v.position.set(l, 0.06 + along, 0); v.receiveShadow = true; this.scene.add(v);
-        const h = new THREE.Mesh(new THREE.PlaneGeometry(s, WORLD.roadHalf * 2), asphalt);
-        h.rotation.x = -Math.PI / 2; h.position.set(0, 0.06, l); h.receiveShadow = true; this.scene.add(h);
+        // The z=190 shore road ends at the boulevard (x=285): the
+        // junction is a T, and the sand runs unbroken to the water.
+        const hLen = l === 190 ? 285 + s / 2 : s;
+        const h = new THREE.Mesh(new THREE.PlaneGeometry(hLen, WORLD.roadHalf * 2), asphalt);
+        h.rotation.x = -Math.PI / 2; h.position.set(l === 190 ? (285 - s / 2) / 2 : 0, 0.06, l); h.receiveShadow = true; this.scene.add(h);
       }
       // Dashed centre lines.
       const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7d154 });
       for (let d = -s / 2; d < s / 2; d += 9) {
         const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 4.2), dashMat);
         dash.rotation.x = -Math.PI / 2; dash.position.set(l, 0.1, d); this.scene.add(dash);
+        if (l === 190 && d > 285) continue;   // no dashes on the deleted shore leg
         const dash2 = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.5), dashMat);
         dash2.rotation.x = -Math.PI / 2; dash2.position.set(d, 0.1, l); this.scene.add(dash2);
       }
@@ -369,6 +373,7 @@ export class City {
       for (const s of [-1, 1]) {
         for (let k = -2; k <= 2; k++) {
           stripe(lx + k * 3.75, lz + s * (rh + 2.4), 1.7, 3.4);   // across the vertical road
+          if (lx === 285 && lz === 190 && s === 1) continue;      // T-junction: no east approach
           stripe(lx + s * (rh + 2.4), lz + k * 3.75, 3.4, 1.7);   // across the horizontal road
         }
       }
@@ -435,6 +440,54 @@ export class City {
         }
       }
     }
+    // Vista fill (the owner's title-backdrop markings): the two open
+    // strand-park blocks west of the boulevard get buildings, and the
+    // rest of the boulevard column gains mass, so the city reads dense
+    // from the menu vantage. A SEPARATE rnd stream is used on purpose:
+    // the shared stream's consumption is unchanged, so the strand,
+    // market, port, signs and palms layouts stay exactly as they were.
+    const rnd2 = mulberry(777001);
+    const fillBlock = (cx, cz, n, guard) => {
+      for (let k = 0; k < n; k++) {
+        const w = 16 + rnd2() * 14, d = 16 + rnd2() * 14;
+        const hgt = 9 + rnd2() * 20;
+        let ox = (rnd2() - 0.5) * (WORLD.block - WORLD.roadHalf * 2 - w - 8);
+        let oz = (rnd2() - 0.5) * (WORLD.block - WORLD.roadHalf * 2 - d - 8);
+        // Keep the hidden package in the north park block reachable.
+        if (guard && Math.hypot(cx + ox - guard.x, cz + oz - guard.z) < guard.r) ox = -ox;
+        const base = palette[(rnd2() * palette.length) | 0];
+        const tex = windowTexture(base, rnd2() < 0.35 ? 0.8 : 0.42, rnd2);
+        tex.repeat.set(Math.max(1, Math.round(w / 24)), Math.max(1, Math.round(hgt / 30)));
+        const b = new THREE.Mesh(new THREE.BoxGeometry(w, hgt, d),
+          new THREE.MeshLambertMaterial({ map: tex }));
+        b.position.set(cx + ox, hgt / 2, cz + oz);
+        b.castShadow = true; b.receiveShadow = true;
+        this.scene.add(b);
+        this.buildings.push(b);
+        this.addCollider(cx + ox, cz + oz, w / 2, d / 2);
+        const roofMat2 = new THREE.MeshLambertMaterial({ color: 0x555c66 });
+        const roofPick = rnd2();
+        if (roofPick < 0.38) {
+          const tankR = Math.min(w, d) * 0.16;
+          const tank = new THREE.Mesh(new THREE.CylinderGeometry(tankR, tankR, 2.8, 10),
+            new THREE.MeshLambertMaterial({ color: 0x9aa4ae }));
+          tank.position.set(cx + ox, hgt + 1.4, cz + oz); tank.castShadow = true; this.scene.add(tank);
+        } else if (roofPick < 0.68) {
+          for (const s of [-1, 1]) {
+            const ac = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.3, 1.8), roofMat2);
+            ac.position.set(cx + ox + s * w * 0.22, hgt + 0.65, cz + oz); this.scene.add(ac);
+          }
+        } else {
+          const cap = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 1.6, d * 0.5), roofMat2);
+          cap.position.set(cx + ox, hgt + 0.8, cz + oz); this.scene.add(cap);
+        }
+      }
+    };
+    fillBlock(237.5, -47.5, 3, { x: 250, z: -40, r: 15 });   // strand park, north
+    fillBlock(237.5, 47.5, 3, null);                          // strand park, south
+    fillBlock(237.5, -142.5, 1, null);                        // boulevard column mass
+    fillBlock(237.5, -237.5, 1, null);
+    fillBlock(237.5, 142.5, 2, null);                         // foreground block, south edge
   }
 
   buildStrand(rnd) {
@@ -450,27 +503,69 @@ export class City {
       new THREE.MeshLambertMaterial({ color: 0x8a6b4a }));
     pier.position.set(395, 1, 40); this.scene.add(pier);
     // Beach umbrellas, each with a lounger and a towel in its shade.
-    const cols = [0xff5964, 0xffd23f, 0x3ec1d3, 0xff8fa3];
+    // The canopy wears a striped two-tone canvas (colour alternating
+    // with cream wedges), a wider brim and a finial ball, so it reads
+    // as a real beach umbrella from the air. The original sixteen keep
+    // their exact spots and rnd consumption — the shared stream must
+    // not shift for the builders that run after the strand.
+    const cols = [0xff5964, 0xffd23f, 0x3ec1d3, 0xff8fa3, 0xff8c42, 0x7bc96f];
     const loungerMat = new THREE.MeshLambertMaterial({ color: 0xf0ead8 });
-    for (let i = 0; i < 16; i++) {
-      const ux = 310 + rnd() * 45, uz = -260 + rnd() * 520;
-      const u = new THREE.Mesh(new THREE.ConeGeometry(3.2, 1.4, 8),
-        new THREE.MeshLambertMaterial({ color: cols[i % 4] }));
-      u.position.set(ux, 2.2, uz);
-      u.castShadow = true; this.scene.add(u);
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4),
-        new THREE.MeshLambertMaterial({ color: 0xdddddd }));
-      pole.position.set(ux, 1.1, uz); this.scene.add(pole);
+    const stripeTex = (hex) => {
+      const c = document.createElement("canvas"); c.width = 128; c.height = 16;
+      const g = c.getContext("2d");
+      const col = "#" + hex.toString(16).padStart(6, "0");
+      for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? "#fff6e8" : col; g.fillRect(i * 16, 0, 16, 16); }
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = THREE.RepeatWrapping;
+      return t;
+    };
+    const canopyMats = cols.map((hex) => new THREE.MeshLambertMaterial({ map: stripeTex(hex) }));
+    const finialMat = new THREE.MeshLambertMaterial({ color: 0xfff6e8 });
+    const poleMat = new THREE.MeshLambertMaterial({ color: 0xdddddd });
+    const dressShade = (ux, uz, i, r) => {
       const lg = new THREE.Group();
       const seat = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.14, 0.78), loungerMat);
       seat.position.y = 0.32; seat.castShadow = true; lg.add(seat);
       const back = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.13, 0.78), loungerMat);
       back.position.set(-1.15, 0.62, 0); back.rotation.z = 0.72; lg.add(back);
       const towel = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.05, 0.62),
-        new THREE.MeshLambertMaterial({ color: cols[(i + 1) % 4] }));
+        new THREE.MeshLambertMaterial({ color: cols[(i + 1) % cols.length] }));
       towel.position.set(1.9, 0.06, 0.5); lg.add(towel);
-      lg.position.set(ux + 2.6, 0, uz + 1.2); lg.rotation.y = rnd() * 0.8 - 0.4;
+      lg.position.set(ux + 2.6, 0, uz + 1.2); lg.rotation.y = r * 0.8 - 0.4;
       this.scene.add(lg);
+    };
+    for (let i = 0; i < 16; i++) {
+      const ux = 310 + rnd() * 45, uz = -260 + rnd() * 520;
+      const u = new THREE.Mesh(new THREE.ConeGeometry(4.0, 1.5, 8), canopyMats[i % cols.length]);
+      u.position.set(ux, 2.35, uz);
+      u.castShadow = true; this.scene.add(u);
+      const fin = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), finialMat);
+      fin.position.set(ux, 3.2, uz); this.scene.add(fin);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6), poleMat);
+      pole.position.set(ux, 1.2, uz); this.scene.add(pole);
+      dressShade(ux, uz, i, rnd());
+    }
+    // A second, denser row from a local stream (shared stream
+    // untouched): the sand flanking the old shore road, z 95..280,
+    // packed thickest so the beach feels lived on, plus a few filling
+    // the northern strip. These ones lean a little, like real
+    // umbrellas planted by hand.
+    const rndU = mulberry(424242);
+    for (let i = 0; i < 18; i++) {
+      const ux = 307 + rndU() * 52, uz = i < 14 ? 98 + rndU() * 180 : -240 + rndU() * 300;
+      const grp = new THREE.Group();
+      const u = new THREE.Mesh(new THREE.ConeGeometry(4.0, 1.5, 8), canopyMats[(i + 2) % cols.length]);
+      u.position.y = 2.35; u.castShadow = true; grp.add(u);
+      const fin = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), finialMat);
+      fin.position.y = 3.2; grp.add(fin);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6), poleMat);
+      pole.position.y = 1.2; grp.add(pole);
+      grp.position.set(ux, 0, uz);
+      grp.rotation.z = (rndU() - 0.5) * 0.14;
+      grp.rotation.x = (rndU() - 0.5) * 0.1;
+      this.scene.add(grp);
+      dressShade(ux, uz, i + 2, rndU());
     }
     // Promenade benches facing the water.
     const benchMat = new THREE.MeshLambertMaterial({ color: 0x7a5c38 });
