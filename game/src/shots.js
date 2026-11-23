@@ -218,60 +218,111 @@ export function stageScene(name, api) {
       break;
     }
     case "port": {
-      // Dusk port run: the coupe sits deep in the apron on the port
-      // road, container rows flanking both sides, a crane ahead-left,
-      // chasing the Regent target car past the gates.
-      api.setClock(18.75);
-      api.setStats({ money: 18450, respect: 2210, health: 76, armor: 58 });
-      api.startJobAt(7, 1);                    // SENJA HEAT, wreck-the-Regent stage
-      api.placeInCar("Senja Coupe", 190, 150, 0.4, 16); // rolling onto the apron toward the cranes
-      api.setCamOffset(0.38);
-      api.setWanted(3, true);
-      api.spawnChasePack(3, 20);
-      // A live street race on the HUD: the Port Run course is armed,
-      // its first gold pillar standing down the apron road.
-      api.startRace(2);
+      // Dusk-night shootout at Pelabuhan. Three stagings taught
+      // the geography the hard way: the apron is a featureless
+      // slab (casts 53–55: fog void, flash disc, no backdrop),
+      // and the container scatter does not respect the roads —
+      // at (163, 190) a magenta box sits ON the road and ate the
+      // camera (cast 56). The recon probe (probe-port.mjs) found
+      // the stretch that works: the z = 190 road at x ≈ 205 —
+      // open asphalt, a barrel at the kerb, and the field's
+      // biggest cluster (a red box, a blue stack) standing SOUTH
+      // of the road 10–15 m behind the fight line.
+      //
+      // So the market geometry is MIRRORED: Raka at (203, 189.5)
+      // fires due EAST (heading π/2) along the road and the gang
+      // stands SOUTH of the ray against the container cluster,
+      // and the capture tool swings the camera the other way
+      // (negative offset, to Raka's gun side) into the same
+      // clean window the market won:
+      //   near man (+4.2, +0.4 S) at (207.2, 189.9) — the kill;
+      //     his body settles back west toward Raka along the
+      //     lane, alone on the asphalt under the beam.
+      //   primary (+7.8, +0.8 S) at (210.8, 190.3) — the standing
+      //     target and a cued return-firer; 0.8 m off the ray is
+      //     inside the ray test's 0.9 pick tolerance, so Raka's
+      //     fire walks near man → primary.
+      //   south firer (+6.9, +3.4 S) at (209.9, 192.9) — diagonal
+      //     return fire across the lane.
+      //   south-mid (+10.8, +3.4 S) at (213.8, 192.9) — the third
+      //     standing gun, holding his fire for the frozen instant.
+      // THE BURNING CAR is the drama anchor: a Kijang wrecked on
+      // the open road north-east of the gang at (219, 188.5) —
+      // cast 57 parked it beyond the gang and the red container
+      // swallowed it whole from the swung camera; on the open
+      // lane nothing stands between its flames and the lens.
+      // The capture tool burns it (wrecked,
+      // health <= 15 is the game's own fire threshold) before
+      // the duel and takes a long thaw before the final freeze,
+      // so its flames and flickering light are live game
+      // systems, not paint.
+      // Clock 19.55 at staging — the capture lands in the
+      // dusk-night family (~19.9): lamps and port work lights at
+      // full strength under a deep teal sky.
+      api.setClock(19.55);
+      api.setStats({ money: 18450, respect: 2210, health: 100, armor: 70 });
+      api.startJobAt(6, 1);                    // THE LONG TABLE, clear-the-port-road stage
+      api.placeOnFoot(203, 189.5, Math.PI / 2); // port road at the container cluster, firing east
+      api.setCamOffset(0);
+      api.addPed(207.2, 189.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(210.8, 190.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(209.9, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(213.8, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // Dockers pinned at the frame's edges and two unpinned
+      // reactors inside the panic radius.
+      const docker = (x, z, speed, opts) => { const p = api.addPed(x, z, opts || {}); if (p) p.speed = speed; };
+      docker(196, 185.5, 0.3, { cap: 0xf5c518 });
+      docker(197.5, 186.5, 0.35, {});
+      docker(218.5, 198.5, 0.3, { cap: 0xe07a3f });
+      docker(220, 199.5, 0.35, {});
+      api.addPed(199, 183.5, {});
+      api.addPed(200, 196, {});
+      // The drama anchor and yard dressing.
+      api.parkCar("Kijang Sprint", 219, 188.5, 0.7);
+      api.parkCar("Kargo Box Truck", 233, 201, 0.5);
+      api.parkCar("Angkot Van", 194, 198, 0.8);
+      api.selectWeapon("smg");
       api.setPackagesFound(4);
-      // Dock dressing: the Kargo box truck parked among the containers
-      // ahead-right, a work van and a hatchback on the apron, dockers
-      // on foot between the rows.
-      api.parkCar("Kargo Box Truck", 218, 190, -0.6);
-      api.parkCar("Angkot Van", 168, 178, -0.5);
-      api.parkCar("Kijang Sprint", 232, 168, 1.2);
-      api.addPed(202, 198, { cap: 0xf5c518 });
-      api.addPed(216, 238, {});
+      api.setWanted(3, true);
       api.setRadio(2);
-      api.dialogue("Bima", "MECHANIC — CREW", "The Regent is making for the hills road! Ram it before it clears the port gates.");
+      api.dialogue("Bima", "MECHANIC — CREW", "Blockade crews on the port road, Raka. The Long Table sits when this road is clear — drop them between the containers.");
       break;
     }
     case "hills": {
-      // On foot on the Bukit Kapur road at deep dusk, ledger job: the
-      // bookkeeper's coupe waits under the gold objective beam, traffic
-      // parked along the lookout, and an SBPD cruiser rolls in on the
-      // player — light bar flashing, headlight cones cutting the dark —
-      // so the wanted response reads in this frame too, not just the
-      // chase shots. The cluster is pulled tight around the player so
-      // the lit skyline, not the bare chalk apron, fills the frame.
-      // Clock 20.6, not 19.x: the lamp heads and night work-lights
-      // only switch on once the sky's light level drops past their
-      // thresholds just before 20:00, and at 20:00 the dome tint is
-      // still bright enough to read as afternoon — 20.6 is where the
-      // sky goes navy with the dusk band down to an ember line, the
-      // lit windows take over, and the headlight cones/pools reach
-      // full strength against the pale chalk.
-      api.setClock(20.6);
+      // Bukit Kapur lookout at dusk-night: the scale shot. The old
+      // staging stood the player in a bare apron facing a wall of
+      // mid-rise blocks at conversational distance — no vista, no
+      // geography. The world is flat, so the "town spread below"
+      // is composed, not topographic: Raka stands at the mission's
+      // own lookout point (-225, -250) facing SOUTH-EAST (heading
+      // 0.72) — over the low chalk rooftops (7–15 m, this district
+      // only) toward the downtown tower cluster (22–60 m) layered
+      // in dusk fog, the bay a teal band at the horizon. The low
+      // camera (the capture tool drags the pitch down) puts the
+      // horizon high and lets the skyline stack.
+      //   * The bookkeeper's coupe waits 10 m ahead under the gold
+      //     objective beam — the mission made visible.
+      //   * An SBPD cruiser rolls in on the x = -190 road shoulder
+      //     (pinned there by the capture tool, headlights toward
+      //     camera) — the wanted response reads in this frame too.
+      //   * Foreground dressing stays on the road shoulder and the
+      //     lookout clearing, where the seeded buildings cannot
+      //     reach (blocks keep their buildings 25 m inside their
+      //     centres; the corridors are guaranteed open).
+      // Clock 19.85 at staging — the capture lands ~20.1: navy
+      // senja sky, lit windows, headlight cones at full strength.
+      api.setClock(19.85);
       api.setStats({ money: 11980, respect: 1340, health: 88, armor: 40 });
-      api.startJobAt(4, 0);
-      api.placeOnFoot(-249, -270, 0.88);
-      api.parkCar("Senja Coupe", -245, -264, 0.8);
-      api.parkCar("Taksi Senja", -237.7, -247.6, 0.9);
-      api.parkCar("Kijang Sprint", -226.8, -267.1, 1.0);
-      api.parkCar("Senja Scooter", -254, -264, 1.2);
+      api.startJobAt(4, 0);                    // HILLSIDE LEDGER, reach-the-lookout stage
+      api.placeOnFoot(-233, -257, 0.72);       // just NW of the lookout point, facing SE over the town
+      api.parkCar("Senja Coupe", -226.5, -251.5, 0.8); // the bookkeeper's coupe, under the beam
+      api.parkCar("Taksi Senja", -199, -264, 0.05);
+      api.parkCar("Kijang Sprint", -198.5, -218, -0.05);
+      api.parkCar("Senja Scooter", -229, -247.5, 1.2);
       api.setPackagesFound(8);
-      api.addPed(-244, -268, {});
-      api.addPed(-240, -262, { hat: 0xe9c46a });
-      api.addPed(-237, -273, {});
-      api.addPed(-230, -252, {});
+      api.addPed(-229.5, -253, {});
+      api.addPed(-201, -247, { hat: 0xe9c46a });
+      api.addPed(-203, -231, {});
       api.selectWeapon("pistol");
       api.setWanted(2, true);
       api.spawnChasePack(1, 12);
