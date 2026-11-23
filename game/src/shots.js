@@ -289,44 +289,44 @@ export function stageScene(name, api) {
       break;
     }
     case "hills": {
-      // Bukit Kapur lookout at dusk-night: the scale shot. The old
-      // staging stood the player in a bare apron facing a wall of
-      // mid-rise blocks at conversational distance — no vista, no
-      // geography. The world is flat, so the "town spread below"
-      // is composed, not topographic: Raka stands at the mission's
-      // own lookout point (-225, -250) facing SOUTH-EAST (heading
-      // 0.72) — over the low chalk rooftops (7–15 m, this district
-      // only) toward the downtown tower cluster (22–60 m) layered
-      // in dusk fog, the bay a teal band at the horizon. The low
-      // camera (the capture tool drags the pitch down) puts the
-      // horizon high and lets the skyline stack.
-      //   * The bookkeeper's coupe waits 10 m ahead under the gold
-      //     objective beam — the mission made visible.
-      //   * An SBPD cruiser rolls in on the x = -190 road shoulder
-      //     (pinned there by the capture tool, headlights toward
-      //     camera) — the wanted response reads in this frame too.
-      //   * Foreground dressing stays on the road shoulder and the
-      //     lookout clearing, where the seeded buildings cannot
-      //     reach (blocks keep their buildings 25 m inside their
-      //     centres; the corridors are guaranteed open).
+      // Bukit Kapur at dusk-night: the scale shot. Two stagings
+      // taught the geography: the lookout clearing faces a
+      // generic mid-rise wall 25 m away (the block east of the
+      // hills is not hills-zoned), and standing inside the goto
+      // radius completes the stage before the grab. The world's
+      // only guaranteed-open sightlines are its road corridors —
+      // so the shot stands on the z = -190 road at the hills'
+      // west end, looking EAST down the canyon: chalk rooftops
+      // on the left, the downtown tower cluster rising at the
+      // corridor's end 300 m away, the bay a teal band beyond
+      // the strand. Flat ground, composed depth — rooftops,
+      // towers, sea, sky, stacked in fog layers.
+      //   * Raka at (-218, -191.5), heading π/2 — 59 m from the
+      //     lookout point, so the stage stays armed and the card
+      //     honestly reads "Reach the Bukit Kapur lookout".
+      //   * The bookkeeper's coupe waits on the shoulder ahead.
+      //   * An SBPD cruiser rolls down the corridor toward the
+      //     camera (pinned by the capture tool at (-178, -186.5),
+      //     headlights first) — the wanted response in-frame.
       // Clock 19.85 at staging — the capture lands ~20.1: navy
       // senja sky, lit windows, headlight cones at full strength.
       api.setClock(19.85);
       api.setStats({ money: 11980, respect: 1340, health: 88, armor: 40 });
       api.startJobAt(4, 0);                    // HILLSIDE LEDGER, reach-the-lookout stage
-      api.placeOnFoot(-233, -257, 0.72);       // just NW of the lookout point, facing SE over the town
-      api.parkCar("Senja Coupe", -226.5, -251.5, 0.8); // the bookkeeper's coupe, under the beam
-      api.parkCar("Taksi Senja", -199, -264, 0.05);
-      api.parkCar("Kijang Sprint", -198.5, -218, -0.05);
-      api.parkCar("Senja Scooter", -229, -247.5, 1.2);
+      api.placeOnFoot(-218, -191.5, Math.PI / 2); // z = -190 road, west end, facing east over the town
+      api.setCamOffset(-0.28);                 // the canyon runs diagonally off Raka's shoulder, not split by him
+      api.parkCar("Senja Coupe", -196, -183.5, Math.PI / 2 + 0.12); // the bookkeeper's coupe, shoulder ahead
+      api.parkCar("Taksi Senja", -227, -199.5, 0.05);
+      api.parkCar("Kijang Sprint", -158, -198.5, -Math.PI / 2);
+      api.parkCar("Senja Scooter", -213.5, -185.5, 1.2);
       api.setPackagesFound(8);
-      api.addPed(-229.5, -253, {});
-      api.addPed(-201, -247, { hat: 0xe9c46a });
-      api.addPed(-203, -231, {});
+      api.addPed(-210, -183, {});
+      api.addPed(-205, -199, { hat: 0xe9c46a });
+      api.addPed(-188, -182.5, {});
       api.selectWeapon("pistol");
       api.setWanted(2, true);
       api.spawnChasePack(1, 12);
-      api.dialogue("Laras", "LOOKOUT — CREW", "That's his car below — blue coupe, bookkeeper in the back. Cruiser rolling in on us — stay sharp, Raka.");
+      api.dialogue("Laras", "LOOKOUT — CREW", "Lookout road, Raka — the whole bay below and the bookkeeper's coupe waiting ahead. Cruiser just turned onto the hill road. Stay sharp.");
       break;
     }
   }
