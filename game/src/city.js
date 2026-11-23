@@ -1286,7 +1286,16 @@ export class City {
       }
       palm.position.set(x, 0, z); this.scene.add(palm);
     };
-    for (let z = -330; z <= 330; z += 24) palmAt(292 + (rnd() - 0.5) * 6, z);
+    // The boulevard row stands ON THE SAND, east of the kerb: at
+    // x 292±3 every trunk stood inside the boulevard asphalt band
+    // (274..296) — palms in the road, as the owner marked on the
+    // title vista. At 303±2 the trunk disc (base r 0.42, west edge
+    // >= 300.58) clears the asphalt (ends 296) and the junction
+    // crosswalk paint east of the boulevard (296.7..300.1), joining
+    // the promenade bench line on the sand. Same z rhythm, same
+    // count, same single rnd() call per palm — the stream is
+    // unchanged for everything planted after.
+    for (let z = -330; z <= 330; z += 24) palmAt(303 + (rnd() - 0.5) * 4, z);
     for (let i = 0; i < 60; i++) {
       const x = (rnd() - 0.5) * 620, z = (rnd() - 0.5) * 620;
       if (!isOnRoad(x, z)) palmAt(x, z);
