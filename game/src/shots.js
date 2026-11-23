@@ -401,7 +401,19 @@ export function stageScene(name, api) {
       // purple, never Raka's teal. A crew-flag ped: he holds his
       // spot, keeps his SMG up on T1 and trades cosmetic fire
       // with the pair (see the crew branch in updatePeds).
-      if (DUEL) api.addPed(193.8, 191.8, { gun: true, weapon: "smg", crew: true, aimAt: [209.7, 198.6], shirt: 0xb3541e, cap: 0x2e4a5a });
+      if (DUEL) api.heroGunPed(api.addPed(193.8, 191.8, { gun: true, weapon: "smg", crew: true, aimAt: [209.7, 198.6], shirt: 0xb3541e, cap: 0x2e4a5a }));
+      // THE HERO GUN (owner's review of the duel frame: "senjatanya
+      // ga keliatan — mana yang senjata mana yang tangan" — the
+      // near-black SMG fused with Raka's dark sleeve into one
+      // block). Duel only: swap his game gun for the light-steel
+      // hero SMG, whose pale body separates from the dark jacket
+      // and whose dark magazine/stock/brake keep the parts
+      // nameable at poster size. Staging-only via the api lever;
+      // the other port variants keep the game gun untouched.
+      // Bima gets the same swap (the heroGunPed wrap above): in
+      // the verification crop his game gun read as one dark block
+      // fused with his raised arm, the owner's exact complaint.
+      if (DUEL) api.setHeroGun();
       // Dockers pinned at the frame's edges and two unpinned
       // reactors inside the panic radius. In the shoulder
       // variant the east dockers step past the re-fanned line

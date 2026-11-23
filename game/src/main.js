@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import { WORLD, WEAPONS, CAR_MODELS, CREW, RADIO, SAVE_KEY, MISSIONS, RACES } from "./config.js";
 import { City, roadLines, nearestRoadCoord, isOnRoad } from "./city.js";
-import { buildCarMesh, buildPersonMesh, animatePerson, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
+import { buildCarMesh, buildPersonMesh, animatePerson, buildHeroGunMesh, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
 import { HUD } from "./hud.js";
 import { GameAudio } from "./audio.js";
 import { MissionRunner } from "./missions.js";
@@ -1809,6 +1809,23 @@ const existing = loadGame();
 if (existing) document.getElementById("continueInfo").textContent = `Rp${existing.money.toLocaleString("en-US")} • job ${Math.min(existing.missionIndex + 1, 8)}/8`;
 
 // ---------- staged scenes for screenshots ----------
+// Hero-gun swap (staging only): replace a staged person's game
+// gun with the light-steel hero SMG from actors.js, so the
+// weapon reads as a weapon in the poster frame. The swap keeps
+// the original gun's anchor and the userData.gun handle every
+// visibility toggle reads; nothing outside the STAGE-only api
+// below can reach it, and a page without ?stage= never builds
+// the hero mesh at all.
+function swapHeroGun(mesh) {
+  const old = mesh && mesh.userData.gun;
+  if (!old) return;
+  const hero = buildHeroGunMesh();
+  hero.position.copy(old.position);
+  hero.visible = old.visible;
+  mesh.add(hero);
+  mesh.remove(old);
+  mesh.userData.gun = hero;
+}
 const api = {
   setClock(h) { S.clock = h; },
   setStats(s) { Object.assign(S, s); },
@@ -1864,6 +1881,8 @@ const api = {
   setCamBack(v) { S.camBack = v; },
   setPackagesFound(n) { activities.setFound(n); },
   setRaceBest(name, secs) { activities.best[name] = secs; },
+  setHeroGun() { swapHeroGun(playerMesh); },
+  heroGunPed(p) { if (p) swapHeroGun(p.mesh); },
   startRace(i) { activities.beginRace(i, true); },
   parkCar(modelName, x, z, heading) {
     const idx = Math.max(0, CAR_MODELS.findIndex((m) => m.name === modelName));

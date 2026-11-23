@@ -271,6 +271,40 @@ function buildGunMesh(opts, rnd) {
   return gun;
 }
 
+// -- Hero SMG (STAGING ONLY) ---------------------------------------
+// Built for one frame: the port-duel poster, where the owner
+// could not tell Raka's near-black SMG from his own arm — same
+// tone, same thickness, fused into one dark mass against his
+// dark jacket. This build inverts the contrast: a LIGHT STEEL
+// body (the 0x93a3b1 accent family pushed well lighter) so the
+// weapon separates from dark clothing on sight, with the part
+// blocks in near-black so the parts stay nameable against the
+// light body — long receiver, pale top rail, a fat dark magazine
+// hanging below, dark stock behind, dark muzzle brake at the
+// tip. Chunkier in every dimension than the game SMG; the
+// silhouette is the message. Nothing in normal play calls this:
+// it is swapped onto a staged mesh only, through the STAGE-only
+// api levers in main.js (setHeroGun / heroGunPed).
+export function buildHeroGunMesh() {
+  const gun = new THREE.Group();
+  gun.position.set(-0.42, 1.28, 0.02);   // buildGunMesh's anchor
+  const steel = lam(0xb9c9d9), pale = lam(0xe2ecf5), dark = lam(0x232830);
+  cbox(0.19, 0.27, 0.78, steel, 0, 0.06, 0.28, gun);      // receiver — the long light body
+  cbox(0.20, 0.055, 0.76, pale, 0, 0.222, 0.28, gun);     // top rail highlight line
+  cbox(0.10, 0.10, 0.10, dark, 0, 0.27, -0.02, gun);      // rear sight block
+  cbox(0.115, 0.14, 0.42, steel, 0, 0.09, 0.86, gun);     // barrel
+  cbox(0.16, 0.19, 0.13, dark, 0, 0.09, 1.10, gun);       // muzzle brake — dark tip
+  cbox(0.05, 0.12, 0.05, dark, 0, 0.25, 1.02, gun);       // front sight post
+  const mag = cbox(0.13, 0.52, 0.20, dark, 0, -0.28, 0.34, gun);  // magazine — the big dark drop
+  mag.rotation.x = -0.12;
+  const fore = cbox(0.12, 0.24, 0.10, dark, 0, -0.16, 0.66, gun); // foregrip
+  fore.rotation.x = 0.15;
+  const grip = cbox(0.11, 0.26, 0.12, dark, 0, -0.17, 0.02, gun); // pistol grip
+  grip.rotation.x = 0.22;
+  cbox(0.15, 0.22, 0.34, dark, 0, 0.03, -0.30, gun);      // stock
+  return gun;
+}
+
 export function buildPersonMesh(opts = {}) {
   const g = new THREE.Group();
   const rnd = personRng();
