@@ -229,56 +229,68 @@ export function stageScene(name, api) {
       // biggest cluster (a red box, a blue stack) standing SOUTH
       // of the road 10–15 m behind the fight line.
       //
-      // So the market geometry is MIRRORED: Raka at (203, 189.5)
-      // fires due EAST (heading π/2) along the road and the gang
-      // stands SOUTH of the ray against the container cluster,
-      // and the capture tool swings the camera the other way
-      // (negative offset, to Raka's gun side) into the same
-      // clean window the market won:
-      //   near man (+4.2, +0.4 S) at (207.2, 189.9) — the kill;
+      // So the market geometry is MIRRORED: Raka fires due EAST
+      // (heading π/2) along the road and the gang stands SOUTH
+      // of the ray against the container cluster, and the capture
+      // tool swings the camera the other way (negative offset,
+      // to Raka's gun side) into the same clean window the
+      // market won:
+      //   near man (+4.2, +0.4 S) at (200.2, 189.9) — the kill;
       //     his body settles back west toward Raka along the
       //     lane, alone on the asphalt under the beam.
-      //   primary (+7.8, +0.8 S) at (210.8, 190.3) — the standing
+      //   primary (+7.8, +0.8 S) at (203.8, 190.3) — the standing
       //     target and a cued return-firer; 0.8 m off the ray is
       //     inside the ray test's 0.9 pick tolerance, so Raka's
       //     fire walks near man → primary.
-      //   south firer (+6.9, +3.4 S) at (209.9, 192.9) — diagonal
+      //   south firer (+6.9, +3.4 S) at (202.9, 192.9) — diagonal
       //     return fire across the lane.
-      //   south-mid (+10.8, +3.4 S) at (213.8, 192.9) — the third
+      //   south-mid (+10.8, +3.4 S) at (206.8, 192.9) — the third
       //     standing gun, holding his fire for the frozen instant.
-      // THE BURNING CAR is the drama anchor: a Kijang wrecked on
-      // the open road north-east of the gang at (219, 188.5) —
-      // cast 57 parked it beyond the gang and the red container
-      // swallowed it whole from the swung camera; on the open
-      // lane nothing stands between its flames and the lens.
-      // The capture tool burns it (wrecked,
-      // health <= 15 is the game's own fire threshold) before
-      // the duel and takes a long thaw before the final freeze,
-      // so its flames and flickering light are live game
-      // systems, not paint.
+      // THE FIX ROUND (owner's review of the first shipped
+      // frame) moved the whole fight 7 m WEST, from x = 203 to
+      // x = 196: at 203 the cluster's long red box hung its flat
+      // face across the frame's centre like a billboard; at 196
+      // the same box steps right and shrinks, the blue stack and
+      // the green box take the centre sky, and only the far men
+      // touch red. The relative geometry — every offset above —
+      // is untouched, so the choreography plays identically.
+      // THE BURNING CAR is the drama anchor, and it now sits
+      // where the swung camera actually looks: a Kijang wrecked
+      // on the apron's south edge at (204, 197), in FRONT of the
+      // red container's face — its fire and charred body break
+      // the flat red mass behind the gang, and nothing stands
+      // between its flames and the lens. (Two earlier spots
+      // failed on evidence: (219, 188.5) sat beyond the gang and
+      // the red box swallowed it whole; (202.5, 185.3) on the
+      // north lane swung out of the frame entirely — the
+      // negative swing throws the road's north side off the
+      // left edge.) The capture tool burns it (wrecked; health
+      // <= 15 is the game's own fire threshold) and chars it the
+      // way damageCar does before the duel, so its flames and
+      // flickering light are live game systems, not paint.
       // Clock 19.55 at staging — the capture lands in the
       // dusk-night family (~19.9): lamps and port work lights at
       // full strength under a deep teal sky.
       api.setClock(19.55);
       api.setStats({ money: 18450, respect: 2210, health: 100, armor: 70 });
       api.startJobAt(6, 1);                    // THE LONG TABLE, clear-the-port-road stage
-      api.placeOnFoot(203, 189.5, Math.PI / 2); // port road at the container cluster, firing east
+      api.placeOnFoot(196, 189.5, Math.PI / 2); // port road at the container cluster, firing east
       api.setCamOffset(0);
-      api.addPed(207.2, 189.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(210.8, 190.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(209.9, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(213.8, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(200.2, 189.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(203.8, 190.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(202.9, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(206.8, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // Dockers pinned at the frame's edges and two unpinned
       // reactors inside the panic radius.
       const docker = (x, z, speed, opts) => { const p = api.addPed(x, z, opts || {}); if (p) p.speed = speed; };
-      docker(196, 185.5, 0.3, { cap: 0xf5c518 });
-      docker(197.5, 186.5, 0.35, {});
-      docker(218.5, 198.5, 0.3, { cap: 0xe07a3f });
-      docker(220, 199.5, 0.35, {});
-      api.addPed(199, 183.5, {});
-      api.addPed(200, 196, {});
+      docker(189, 185.5, 0.3, { cap: 0xf5c518 });
+      docker(190.5, 186.5, 0.35, {});
+      docker(211.5, 198.5, 0.3, { cap: 0xe07a3f });
+      docker(213, 199.5, 0.35, {});
+      api.addPed(192, 183.5, {});
+      api.addPed(193, 196, {});
       // The drama anchor and yard dressing.
-      api.parkCar("Kijang Sprint", 219, 188.5, 0.7);
+      api.parkCar("Kijang Sprint", 204, 197, 0.55);
       api.parkCar("Kargo Box Truck", 233, 201, 0.5);
       api.parkCar("Angkot Van", 194, 198, 0.8);
       api.selectWeapon("smg");

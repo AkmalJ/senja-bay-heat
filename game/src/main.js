@@ -625,8 +625,19 @@ function updateCarFires(dt, now) {
     const len = car.mesh.userData.length || 4.6;
     const hx = car.pos.x + f.x * (len / 2 - 1.1), hz = car.pos.z + f.z * (len / 2 - 1.1);
     if (burning) {
-      for (let i = 0; i < 2; i++) fx.spawn(hx, 1.15, hz, { n: 1, color: FLAME_COLS[(Math.random() * 3) | 0], opacity: 0.85, size: 1.3, spread: 0.7, up: 3.4, life: 0.5, grow: 0.5, drag: 0.6 });
-      fx.spawn(hx, 1.9, hz, { n: 1, color: 0x2e2e2e, opacity: 0.5, size: 1.6, spread: 0.8, up: 2.8, life: 1.25, grow: 3.0, drag: 1.2 });
+      // Flames sized to be believed (v5.4): the first tongues
+      // were 0.45 m embers — honest at arm's length, invisible
+      // across a street — and the second pass made them wider
+      // but left them crouching at the hood line, where the
+      // car's own body hides the column's base from any low
+      // camera. A burning car is supposed to be the thing you
+      // see first, so the fire now stands on two feet — hood
+      // and cabin — and climbs clear of the roof: four tall
+      // tongues per tick, ~3 m of fire before the smoke (which
+      // now starts above the roofline) takes it.
+      for (let i = 0; i < 2; i++) fx.spawn(hx, 1.25, hz, { n: 1, color: FLAME_COLS[(Math.random() * 3) | 0], opacity: 0.85, size: 2.3, spread: 0.9, up: 4.6, life: 0.75, grow: 1.0, drag: 0.6 });
+      for (let i = 0; i < 2; i++) fx.spawn(car.pos.x, 1.35, car.pos.z, { n: 1, color: FLAME_COLS[(Math.random() * 3) | 0], opacity: 0.85, size: 2.3, spread: 0.9, up: 4.6, life: 0.75, grow: 1.0, drag: 0.6 });
+      fx.spawn(hx, 2.4, hz, { n: 1, color: 0x2e2e2e, opacity: 0.5, size: 2.1, spread: 0.8, up: 2.8, life: 1.25, grow: 3.0, drag: 1.2 });
     } else {
       fx.spawn(hx, 1.3, hz, { n: 1, color: 0x777777, opacity: 0.42, size: 1.2, spread: 0.6, up: 2.2, life: 1.0, grow: 2.6, drag: 1.2 });
     }
@@ -829,7 +840,16 @@ function updatePeds(dt) {
           const muzzle = new THREE.Vector3(-0.42, 1.35, 0.35).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
           fireOrb(muzzle, 0.92, 0xffc9b0);
           fireBeam(muzzle, new THREE.Vector3(fp.x, 1.3, fp.z), true);
-          burst(new THREE.Vector3(fp.x, 1.2, fp.z), 0xff6b81, 5, 2, 1.5, 1.6);
+          // The hit on Raka reads as flecks, not fruit (v5.4): the
+          // old burst threw five 0.35 m pink spheres at his chest,
+          // which hung on his back like shoulder pads in any held
+          // or slow frame, and the first trim (four at 0.8) still
+          // left one sphere sitting on his neck like a pendant in
+          // a held frame. Four small sparks now, thrown wider and
+          // faster and dead inside a third of a second — a sting
+          // you register, not a costume he wears. The feedback
+          // stays; the jewellery goes.
+          burst(new THREE.Vector3(fp.x, 1.25, fp.z), 0xff6b81, 4, 3.0, 2.6, 0.6, 0.24);
           if (S.inCar) damageCar(S.inCar, 2, null); else hurtPlayer(4);
         }
       }
