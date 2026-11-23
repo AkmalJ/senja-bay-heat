@@ -70,14 +70,21 @@ export function stageScene(name, api) {
       //     strongest gun-side view the real follow camera
       //     honestly holds with the whole duel in frame.
       //   * ONE MAN DOWN, IN THE OPEN. The near man stands ON
-      //     the ray 3.2 m out. A hostile stands his ground
+      //     the ray 4.5 m out. A hostile stands his ground
       //     facing Raka (updatePeds), and the corpse settle tips
       //     him TOWARD his facing — his body comes to rest along
       //     the ~1.9 m of open floor between his feet and Raka,
-      //     directly under the continuing beam line. He wears the
-      //     gang purple without the vest: face-up, the bare
-      //     shirt is what keeps the body readable — the
-      //     near-black vest swallowed an earlier corpse whole.
+      //     directly under the continuing beam line. The range
+      //     was 3.2 m in the first lateral staging and the swung
+      //     camera LOST the body entirely: settled at Raka's
+      //     feet, it hid under his silhouette and the frame's
+      //     lower edge. At 4.5 m the body spans ~2.6–4.5 m out —
+      //     clear of the hero, mid-frame, the Karimbu
+      //     arrangement of a body flat in open ground under the
+      //     beam. He wears the gang purple without the vest:
+      //     face-up, the bare shirt is what keeps the body
+      //     readable — the near-black vest swallowed an earlier
+      //     corpse whole.
       //   * THE STANDING TARGET: the far man on the same ray
       //     5.4 m out, backed against the north stall fronts
       //     with a painted sign behind him and a gap in the
@@ -114,23 +121,25 @@ export function stageScene(name, api) {
       api.placeOnFoot(-241.5, 109.0, Math.PI / 2); // aisle 2's west stretch, firing due east along the lane
       api.setCamOffset(0);
       // The fight, all of it on the east ray out of
-      // (−241.5, 109.0): the near man 3.2 m out at (−238.3,
+      // (−241.5, 109.0): the near man 4.5 m out at (−237.0,
       // 109.0) — he is the kill, and his body settles flat in
-      // the open under the beam line; the far man 5.4 m out
-      // at (−236.1, 109.0) — he is the standing target the
-      // frozen burst lands on, in front of the north row's
-      // stall at x ≈ −233.5, its painted sign as his backdrop.
-      // The ranges are tight on purpose: the follow camera is
-      // fixed 4.2 m back and looks AT Raka, so from the swung
+      // the open under the beam line, clear of Raka's
+      // silhouette; the far man 5.9 m out at (−235.6, 109.0)
+      // — he is the standing target the frozen burst lands
+      // on, in front of the north row's stall at x ≈ −233.5,
+      // its hanging sign as his backdrop, with open floor
+      // between the corpse's head and his feet. The ranges
+      // stay tight on purpose: the follow camera is fixed
+      // 4.2 m back and looks AT Raka, so from the swung
       // gun-side view every metre of duel length costs ~5° of
       // frame — at 6.6 m the target slid to 79% of the width,
       // behind the HUD's right column and with his head inside
-      // the weapon panels; at 5.4 m he stands at ~69%, clear
-      // of the panels, head and all. His wingman covers from
-      // the same front further east, a separate figure in his
-      // own space.
-      api.addPed(-238.3, 109.0, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(-236.1, 109.0, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // the weapon panels; at 5.4 m he stood at ~69%, and
+      // 5.9 m buys the corpse its room for ~3 points more.
+      // His wingman covers from the same front further east,
+      // a separate figure in his own space.
+      api.addPed(-237.0, 109.0, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(-235.6, 109.0, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       api.addPed(-229.5, 107.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // The crowd. api.addPed returns the ped, and pinning its
       // wander speed is what keeps a browser browsing his stall

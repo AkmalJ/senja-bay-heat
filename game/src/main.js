@@ -503,15 +503,19 @@ function shoot(dt) {
     // The impact carries the tracer's read (v5): a fat warm spark
     // burst, a tight glow, and a wisp of dust-smoke kicked off the
     // target — the beam itself is only on screen for a few frames.
-    burst(end, 0xffc46b, 12, 1.9, 2.0, 1.45, 0.38);
+    // Trimmed once more (v5.2): nine smaller sparks, not twelve
+    // fat ones — a frozen or slow frame showed the stacked cluster
+    // as one cream blob the size of the man's torso, and the hit
+    // has to read as sparks ON a man who stays visible.
+    burst(end, 0xffc46b, 9, 1.9, 2.0, 1.0, 0.38);
     if (hit.health !== undefined && hit.kind === undefined) { // a person
-      fireOrb(end, 0.42, 0xffe9c4);
+      fireOrb(end, 0.30, 0xffe9c4);
       // The smoke stays a small accent (v5.1): the first tuning
       // grew three metre-wide grey boxes off a man's chest and the
       // puff swallowed him whole — a hit should read as sparks ON
-      // the man, not an explosion AROUND him. Two small, short,
-      // slow-growing wisps; the sparks above do the talking.
-      fx.spawn(end.x, end.y, end.z, { n: 2, color: 0xa79e92, opacity: 0.3, size: 0.55, spread: 0.7, up: 1.0, life: 0.32, grow: 1.2, drag: 1.7 });
+      // the man, not an explosion AROUND him. One small, short,
+      // slow-growing wisp (v5.2); the sparks above do the talking.
+      fx.spawn(end.x, end.y, end.z, { n: 1, color: 0xa79e92, opacity: 0.22, size: 0.4, spread: 0.7, up: 1.0, life: 0.32, grow: 1.2, drag: 1.7 });
       hit.health -= w.damage; audio.hit();
       if (hit.health <= 0 && !hit.dead) {
         hit.dead = true; settleCorpse(hit.mesh);

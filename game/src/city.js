@@ -457,12 +457,43 @@ export class City {
     const sackMatS = new THREE.MeshLambertMaterial({ color: 0xc2a878 });
     const fruitGeoS = new THREE.SphereGeometry(0.17, 7, 6);
     const sellerShirts = [0xe9c46a, 0x2a9d8f, 0xe63946, 0xf4a261, 0x4a7fb5, 0x8a5fb0];
+    const backMat = new THREE.MeshLambertMaterial({ color: 0x5d4128 });
+    const stringMatS = new THREE.MeshBasicMaterial({ color: 0x2b2b26 });
     let n = 0;
     const stall = (x, z, ry) => {
       const g = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(10.5, 2.3, 4.6),
+      // THE OPEN FRONT (owner's critique, answered): a stall is
+      // not a solid block. The old body was a 2.3 m box with the
+      // goods balanced on top — from the lane it read as a tall
+      // blank wall with its back turned, "too plain to be a
+      // market". Now the front is a waist-high COUNTER with the
+      // goods on it at readable height, an OPEN BAND above it
+      // where the seller stands in the shade, a stock shelf and
+      // a back panel closing the interior, and the canopy
+      // floating over the opening on its two posts. From any
+      // lane the visible face is a vendor's open stand.
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(10.5, 1.05, 1.15),
         new THREE.MeshLambertMaterial({ color: woods[n % 3] }));
-      body.position.set(0, 1.15, -0.2); body.castShadow = true; g.add(body);
+      counter.position.set(0, 0.525, 1.55); counter.castShadow = true; g.add(counter);
+      // A painted board under the counter lip, in the stall's
+      // tarp colour — the front face carries detail at the
+      // height a passer-by actually looks at.
+      const boardF = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.3, 0.05),
+        new THREE.MeshLambertMaterial({ color: tarps[n % 6] }));
+      boardF.position.set(0, 0.84, 2.14); g.add(boardF);
+      const shelf = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.85, 0.8), backMat);
+      shelf.position.set(0, 0.425, -1.95); shelf.castShadow = true; g.add(shelf);
+      // Stock on the back shelf — interior depth behind the
+      // seller, so the opening reads as a working booth.
+      const shelfCrate = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.72, 1.05), crateMatS);
+      shelfCrate.position.set(-3.2, 1.21, -1.95); shelfCrate.rotation.y = 0.3; shelfCrate.castShadow = true; g.add(shelfCrate);
+      const shelfSack = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), sackMatS);
+      shelfSack.scale.y = 0.75; shelfSack.position.set(2.8, 1.26, -1.95); shelfSack.castShadow = true; g.add(shelfSack);
+      const shelfBox = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.6, 0.95),
+        new THREE.MeshLambertMaterial({ color: goodsCols[(n + 2) % 5] }));
+      shelfBox.position.set(0.6, 1.15, -1.95); shelfBox.castShadow = true; g.add(shelfBox);
+      const backPanel = new THREE.Mesh(new THREE.BoxGeometry(10.5, 2.3, 0.14), backMat);
+      backPanel.position.set(0, 1.15, -2.42); backPanel.castShadow = true; g.add(backPanel);
       const canopy = new THREE.Mesh(new THREE.BoxGeometry(11.4, 0.14, 6.6),
         new THREE.MeshLambertMaterial({ color: tarps[n % 6] }));
       // No two tarps pitched alike: slope and a whisper of roll
@@ -472,9 +503,16 @@ export class City {
         const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.2, 6), postMat);
         post.position.set(px, 1.6, 2.2); g.add(post);
       }
-      const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 1.0),
+      // The name board HANGS from the canopy's front lip on two
+      // strings, over the open band — where a real pasar board
+      // hangs — instead of pasted on the old solid face.
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 0.85),
         new THREE.MeshBasicMaterial({ map: signTexture(names[n % names.length], "", signBgs[n % 5], "#ffd98a") }));
-      sign.position.set(0, 2.68, 2.16); g.add(sign);
+      sign.position.set(0, 2.42, 3.30); g.add(sign);
+      for (const sx of [-2.3, 2.3]) {
+        const str = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.03), stringMatS);
+        str.position.set(sx, 2.95, 3.30); g.add(str);
+      }
       // Counter goods, four vendor patterns rotating stall by
       // stall — produce mounds, a crate stack, hanging bags under
       // the canopy lip, sacks and baskets — so a counter reads as
@@ -485,48 +523,47 @@ export class City {
           const fm = new THREE.MeshLambertMaterial({ color: goodsCols[(n + md) % 5] });
           for (let f = 0; f < 5; f++) {
             const fr = new THREE.Mesh(fruitGeoS, fm);
-            fr.position.set(-3.2 + md * 3.2 - 0.28 + (f % 3) * 0.3, 2.42 + (f === 4 ? 0.2 : 0), 1.3 - 0.16 + ((f / 3) | 0) * 0.3);
+            fr.position.set(-3.2 + md * 3.2 - 0.28 + (f % 3) * 0.3, 1.20 + (f === 4 ? 0.2 : 0), 1.5 - 0.16 + ((f / 3) | 0) * 0.3);
             fr.castShadow = true; g.add(fr);
           }
         }
       } else if (pat === 1) {     // stacked crates, top one open with goods
-        for (const [cx, cy, cz, cr] of [[-3.0, 2.7, 1.2, 0], [-3.0, 3.42, 1.2, 0.35], [0.4, 2.7, 1.3, -0.2]]) {
+        for (const [cx, cy, cz, cr] of [[-3.0, 1.45, 1.45, 0], [-3.0, 2.17, 1.45, 0.35], [0.4, 1.45, 1.5, -0.2]]) {
           const cr8 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.72, 1.05), crateMatS);
           cr8.position.set(cx, cy, cz); cr8.rotation.y = cr; cr8.castShadow = true; g.add(cr8);
         }
         for (let f = 0; f < 4; f++) {
           const fr = new THREE.Mesh(fruitGeoS, new THREE.MeshLambertMaterial({ color: goodsCols[(n + f) % 5] }));
-          fr.position.set(-3.25 + (f % 2) * 0.42, 3.86, 1.05 + ((f / 2) | 0) * 0.36); g.add(fr);
+          fr.position.set(-3.25 + (f % 2) * 0.42, 2.61, 1.3 + ((f / 2) | 0) * 0.36); g.add(fr);
         }
         const sk = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), sackMatS);
-        sk.scale.y = 0.75; sk.position.set(3.1, 2.62, 1.25); sk.castShadow = true; g.add(sk);
-      } else if (pat === 2) {     // hanging bags under the canopy's front lip
+        sk.scale.y = 0.75; sk.position.set(3.1, 1.44, 1.45); sk.castShadow = true; g.add(sk);
+      } else if (pat === 2) {     // hanging bags in the open band, behind the sign line
         const bagMatH = new THREE.MeshLambertMaterial({ color: goodsCols[(n + 1) % 5] });
-        const stringMat = new THREE.MeshBasicMaterial({ color: 0x2b2b26 });
         for (let hb = 0; hb < 4; hb++) {
           const hx = -3.4 + hb * 2.2;
-          const str = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.03), stringMat);
-          str.position.set(hx, 3.06, 3.35); g.add(str);
+          const str = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.03), stringMatS);
+          str.position.set(hx, 2.72, 2.80); g.add(str);
           const bag = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.46, 0.2), bagMatH);
-          bag.position.set(hx, 2.72, 3.35); bag.rotation.y = (hb % 2 ? 0.3 : -0.24); bag.castShadow = true; g.add(bag);
+          bag.position.set(hx, 2.28, 2.80); bag.rotation.y = (hb % 2 ? 0.3 : -0.24); bag.castShadow = true; g.add(bag);
         }
         const bs = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.6, 0.95),
           new THREE.MeshLambertMaterial({ color: goodsCols[(n + 3) % 5] }));
-        bs.position.set(3.4, 2.6, 1.3); bs.castShadow = true; g.add(bs);
+        bs.position.set(3.4, 1.35, 1.5); bs.castShadow = true; g.add(bs);
       } else {                    // sacks slumped on the counter + a basket
         for (let s2 = 0; s2 < 2; s2++) {
           const sk = new THREE.Mesh(new THREE.SphereGeometry(0.58, 8, 6), sackMatS);
-          sk.scale.y = 0.72; sk.position.set(-2.9 + s2 * 1.1, 2.66, 1.25); sk.castShadow = true; g.add(sk);
+          sk.scale.y = 0.72; sk.position.set(-2.9 + s2 * 1.1, 1.44, 1.45); sk.castShadow = true; g.add(sk);
         }
         const bk = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.36, 0.5, 9), crateMatS);
-        bk.position.set(1.4, 2.55, 1.3); bk.castShadow = true; g.add(bk);
+        bk.position.set(1.4, 1.30, 1.5); bk.castShadow = true; g.add(bk);
         for (let f = 0; f < 4; f++) {
           const fr = new THREE.Mesh(fruitGeoS, new THREE.MeshLambertMaterial({ color: goodsCols[(n + f + 1) % 5] }));
-          fr.position.set(1.4 - 0.2 + (f % 2) * 0.36, 2.86, 1.3 - 0.16 + ((f / 2) | 0) * 0.32); g.add(fr);
+          fr.position.set(1.4 - 0.2 + (f % 2) * 0.36, 1.61, 1.5 - 0.16 + ((f / 2) | 0) * 0.32); g.add(fr);
         }
         const bs = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.6, 0.95),
           new THREE.MeshLambertMaterial({ color: goodsCols[(n + 2) % 5] }));
-        bs.position.set(3.6, 2.6, 1.2); bs.castShadow = true; g.add(bs);
+        bs.position.set(3.6, 1.35, 1.45); bs.castShadow = true; g.add(bs);
       }
       // Stock spilling off the front: a crate or a sack on the
       // earth at the counter's corner, the way vendors overflow.
