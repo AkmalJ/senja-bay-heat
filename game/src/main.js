@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import { WORLD, WEAPONS, CAR_MODELS, CREW, RADIO, SAVE_KEY, MISSIONS, RACES } from "./config.js";
 import { City, roadLines, nearestRoadCoord, isOnRoad } from "./city.js";
-import { buildCarMesh, buildPersonMesh, animatePerson, buildHeroGunMesh, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
+import { buildCarMesh, buildPersonMesh, animatePerson, updateAimPose, buildHeroGunMesh, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
 import { HUD } from "./hud.js";
 import { GameAudio } from "./audio.js";
 import { MissionRunner } from "./missions.js";
@@ -635,6 +635,11 @@ function fireOrb(pos, scale, tint, star = false) {
 function settleCorpse(mesh) {
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.y = 0.22;
+  // A man dropped mid-aim lies with his arms at rest, not with
+  // the gun arm still levelled at the sky: clear the pose with
+  // the body (updatePeds never animates the dead again).
+  if (mesh.userData.limbs) { const l = mesh.userData.limbs; l.armL.rotation.set(0, 0, 0); l.armR.rotation.set(0, 0, 0); }
+  mesh.userData.aimBlend = 0;
   if (mesh.userData.gun) mesh.userData.gun.visible = false;
   if (mesh.userData.marker) mesh.userData.marker.visible = false;
 }
@@ -995,6 +1000,7 @@ function updatePeds(dt) {
     if (p.dead) continue;
     p.phase += dt * p.speed * 2.4;
     let move = p.speed;
+    let aimingNow = false;
     const dPlayer = dist2d(p.pos, fp);
     if (p.hostile) {
       // The red ▼ rides over an active hostile: visible while he
@@ -1011,6 +1017,7 @@ function updatePeds(dt) {
       if (dPlayer > 17) { p.heading = Math.atan2(fp.x - p.pos.x, fp.z - p.pos.z); move = 4.6; }
       else {
         move = 0; p.heading = Math.atan2(fp.x - p.pos.x, fp.z - p.pos.z);
+        aimingNow = true;   // in his firing state: gun arm up on the player (updateAimPose, below)
         p.shootCd -= dt;
         if (p.shootCd <= 0) {
           p.shootCd = 0.9 + Math.random() * 0.9;
@@ -1043,12 +1050,13 @@ function updatePeds(dt) {
       // Staged crew backup — spawned ONLY by ?stage= screenshot
       // stagings (the crew flag is set nowhere else), so normal
       // play never grows one. He stands his ground, keeps his gun
-      // up on his assigned target (aimPose: the raised-arm stance
-      // updatePlayer gives Raka, re-applied below animatePerson),
+      // up on his assigned target (aimingNow: the blended aiming
+      // pose updatePlayer gives Raka, applied below animatePerson),
       // and trades COSMETIC fire with it — a real beam and star
       // orb from his own barrel, but no damage either way. Set
       // dressing for the two-way-fight read, not a combatant.
       move = 0;
+      aimingNow = true;   // his gun stays up on his assigned target
       p.heading = Math.atan2(p.aimX - p.pos.x, p.aimZ - p.pos.z);
       p.shootCd -= dt;
       if (p.shootCd <= 0) {
@@ -1077,10 +1085,13 @@ function updatePeds(dt) {
     p.pos.x = nx; p.pos.z = nz;
     p.mesh.rotation.y = p.heading;
     animatePerson(p.mesh, p.phase, move);
-    // The crew stance: animatePerson parks both arms at his
-    // sides, so a staged backup's raised gun arm is re-applied
-    // after it — the same angles updatePlayer sets for Raka.
-    if (p.aimPose) { const l = p.mesh.userData.limbs; if (l) { l.armR.rotation.x = -1.5; l.armL.rotation.x = -0.55; } }
+    // The aiming pose, blended over the walk swing: a gunman in
+    // his firing state stands with his gun arm levelled on his
+    // target — hostiles in range, the staged crew ally on his
+    // assigned man — and the arm settles back as he moves off.
+    // (This replaces the crew stance's old snap, which set the
+    // same angles outright after animatePerson.)
+    updateAimPose(p.mesh, dt, aimingNow);
     // Run over by the player's car.
     if (S.inCar && Math.abs(S.inCar.speed) > 6 && dist2d(p.pos, S.inCar.pos) < 2.4) {
       p.dead = true; settleCorpse(p.mesh);
@@ -1197,16 +1208,22 @@ function updatePlayer(dt) {
   // raised hand meets it. The turn is pointer-lock only: with the
   // free camera the yaw already follows his heading, and if both
   // chased each other the pair would slowly rotate as one.
-  const aiming = mouseDown && WEAPONS[S.weaponIdx].id !== "fists";
+  const armed = WEAPONS[S.weaponIdx].id !== "fists";
+  // The pose also holds a beat after the last shot (lastShotAt),
+  // so the arm does not drop the instant the trigger lifts.
+  const aiming = armed && (mouseDown || performance.now() - lastShotAt < 350);
   if (aiming && pointerLocked) player.heading = angleLerp(player.heading, camYaw + Math.PI, 0.55);
-  if (playerMesh.userData.gun) playerMesh.userData.gun.visible = WEAPONS[S.weaponIdx].id !== "fists";
+  if (playerMesh.userData.gun) playerMesh.userData.gun.visible = armed;
   playerMesh.rotation.y = player.heading;
   animatePerson(playerMesh, player.phase, moving ? run : 0);
-  if (aiming) {
-    const limbs = playerMesh.userData.limbs;
-    limbs.armR.rotation.x = -1.5;
-    limbs.armL.rotation.x = -0.55;
-  }
+  // The aiming pose, blended (updateAimPose) where the old code
+  // snapped the same angles in outright. Under the staging
+  // freeze the capture lets go of the mouse and swings the
+  // camera around a man caught mid-shot: the held trigger still
+  // raises the arm (the freeze can engage a frame before his
+  // first shot), and once the pose is up the frozen moment
+  // holds it for the frame.
+  updateAimPose(playerMesh, dt, aiming || (fxFrozen && (playerMesh.userData.aimBlend || 0) > 0.05));
   audio.setEngine(false, 0, 0);
 }
 

@@ -468,6 +468,43 @@ export function animatePerson(mesh, phase, speed) {
   legL.rotation.x = -s; legR.rotation.x = s;
 }
 
+// -- The aiming pose ------------------------------------------------
+// The owner's find, after three gun-size rounds missed it: the
+// problem was never the gun — a shooting character's ARM did not
+// move. The gun box floats at chest height pointing forward
+// while both arms hang at his sides (or swing with the walk), so
+// hand and weapon never form one line and the eye cannot tell
+// them apart. This is the fix, shared by every person mesh:
+// while a character fires — or holds on a target — the gun arm
+// (armR, the gun's side) comes up level along the shot line and
+// the support arm rises part-way and angles in under the gun, a
+// two-hand read at this poly scale. Call AFTER animatePerson:
+// the pose blends over whatever the walk/idle swing just set, by
+// a per-mesh weight (userData.aimBlend) that eases in fast
+// (~0.25 s) and settles out a touch slower, so the arm rises and
+// falls as motion, never a snap. Legs are untouched — a man can
+// walk and aim; a corpse is another matter (settleCorpse zeroes
+// the blend and the arms with the body).
+const AIM_ARM_R = -1.5;    // gun arm level, down the shot line
+const AIM_ARM_L = -0.55;   // support arm raised part-way
+const AIM_ARM_L_Z = -0.38; // ...and angled in toward the gun
+export function updateAimPose(mesh, dt, active) {
+  const u = mesh.userData;
+  const target = active ? 1 : 0;
+  let a = u.aimBlend || 0;
+  if (a !== target) {
+    a += (target - a) * Math.min(1, dt * (active ? 13 : 8));
+    if (Math.abs(target - a) < 0.02) a = target;
+    u.aimBlend = a;
+  }
+  const { armL, armR } = u.limbs;
+  if (a > 0) {
+    armR.rotation.x += (AIM_ARM_R - armR.rotation.x) * a;
+    armL.rotation.x += (AIM_ARM_L - armL.rotation.x) * a;
+    armL.rotation.z = AIM_ARM_L_Z * a;
+  } else if (armL.rotation.z !== 0) armL.rotation.z = 0;
+}
+
 export function buildHelicopterMesh() {
   const g = new THREE.Group();
   const bodyMat = new THREE.MeshLambertMaterial({ color: 0xeef2f5 });
