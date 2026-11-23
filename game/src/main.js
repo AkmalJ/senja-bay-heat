@@ -1411,6 +1411,44 @@ function restoreMenuSun() {
   menuSunOn = false;
 }
 
+// ---------- title-screen sun-light treatment ----------
+// One more menu-only touch, same contract. The poster borrows
+// the sun DISC and hangs it low over the bay in the east
+// (MENU_SUN above), but the light itself never moved with it:
+// the menu branch of updateCamera seats the light on its
+// western home every frame, so every shadow in the poster —
+// buildings, palms, umbrellas — falls east, toward the sun it
+// is meant to fall away from. The owner called it plainly:
+// the shadows run opposite the sun. While the menu is up this
+// treatment re-seats the light on the disc's own azimuth from
+// the vista target, at the home seat's distance and height,
+// so the whole poster throws its shadows west, away from the
+// disc, at the lengths the poster was composed with. The
+// branch re-seats the light before the treatments run each
+// frame, so the move is re-asserted each frame too. Restore
+// is the play branch itself: it seats the light on the player
+// every frame, and updateSky owns the light's colour and
+// strength in both modes — nothing here leaks into play.
+const MENU_SUNLIGHT_DIST = 528, MENU_SUNLIGHT_Y = 58;
+let menuSunLightOn = false, menuSunLightPos = null;
+function applyMenuSunLight() {
+  if (!menuSunLightPos) {
+    const dx = MENU_SUN.x - MENU_POSE.lx, dz = MENU_SUN.z - MENU_POSE.lz;
+    const len = Math.hypot(dx, dz);
+    menuSunLightPos = {
+      x: MENU_POSE.lx + (dx / len) * MENU_SUNLIGHT_DIST,
+      y: MENU_SUNLIGHT_Y,
+      z: MENU_POSE.lz + (dz / len) * MENU_SUNLIGHT_DIST,
+    };
+  }
+  sun.position.set(menuSunLightPos.x, menuSunLightPos.y, menuSunLightPos.z);
+  menuSunLightOn = true;
+}
+function restoreMenuSunLight() {
+  if (!menuSunLightOn) return;
+  menuSunLightOn = false;
+}
+
 // ---------- camera, light, day cycle ----------
 function updateCamera(dt) {
   // Title-screen panorama (v5, fixed): the first frame of the
@@ -1450,6 +1488,7 @@ function updateCamera(dt) {
     applyMenuTraffic();
     applyMenuBeach();
     applyMenuShadowCam();
+    applyMenuSunLight();
     if (!menuGradeOn) { renderer.toneMappingExposure = 1.36; menuGradeOn = true; }
     return;
   }
@@ -1459,6 +1498,7 @@ function updateCamera(dt) {
   restoreMenuTraffic();
   restoreMenuBeach();
   restoreMenuShadowCam();
+  restoreMenuSunLight();
   if (menuGradeOn) { renderer.toneMappingExposure = 1.12; menuGradeOn = false; }
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;
