@@ -395,17 +395,21 @@ const flash = new THREE.PointLight(0xffc46b, 0, 18);
 scene.add(flash);
 let fireTimer = 0;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
-// Gunfire visuals, tuned as TRACERS (v5). The v4 pooled beams — an
-// 11 cm core wrapped in a 24 cm halo, alive for 0.16 s — read on
-// screen as laser slabs, not bullets. A tracer is the opposite
-// recipe: a thin warm core (5 cm) with a tight glow (11 cm at low
-// opacity) that lives for a few frames only, while the IMPACT
-// carries the read — a fat warm spark burst plus a puff of dust and
-// smoke where the round lands, and a tight orb at the muzzle.
-// Hostile fire is thinner, dimmer and redder, and dies faster, so a
-// two-way fight never becomes a light show. Beams and orbs are
-// pooled and recycled like the ambient Effects pool, so the frame
-// loop never allocates for gunfire.
+// Gunfire visuals, tuned as TRACERS (v5, fading shader v5.6). The
+// v4 pooled beams — an 11 cm core wrapped in a 24 cm halo, alive
+// for 0.16 s — read on screen as laser slabs, not bullets. The v5
+// thinning helped in motion, but a uniform-opacity beam still
+// froze as one rigid bright line end-to-end: a laser. The beam is
+// now a shader that FADES along its length — full brightness at
+// the muzzle, dying to nothing at the target, the way a real
+// tracer streak burns out — over a thinner warm core (4 cm) with
+// a tight glow (9 cm). The IMPACT carries the rest of the read: a
+// fat warm spark burst plus a puff of dust and smoke where the
+// round lands, and a star-shaped flash at the muzzle. Hostile
+// fire is dimmer and redder, and dies faster, so a two-way fight
+// never becomes a light show. Beams and orbs are pooled and
+// recycled like the ambient Effects pool, so the frame loop never
+// allocates for gunfire.
 const beams = [];
 let beamCursor = 0, lastBeamEnd = null;
 // Screenshot staging can freeze the gunfire effects at their peak
@@ -417,18 +421,44 @@ let beamCursor = 0, lastBeamEnd = null;
 // it always has.
 let fxFrozen = false, lastShotAt = 0;
 const beamGeo = new THREE.BoxGeometry(1, 1, 1);
+// The fade runs along the beam's local Z: the unit box spans
+// z -0.5..0.5, lookAt puts +Z on the target, so vT is 0 at the
+// muzzle and 1 at the target, and alpha falls as pow(1-vT, 1.3)
+// — steep enough to kill the line's end, gentle enough that the
+// streak's bright half survives a downscale to screenshot size.
+const beamVert = `
+  varying float vT;
+  void main() {
+    vT = position.z + 0.5;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const beamFrag = `
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying float vT;
+  void main() {
+    float a = uOpacity * pow(1.0 - vT, 1.3);
+    if (a < 0.004) discard;
+    gl_FragColor = vec4(uColor, a);
+  }
+`;
 function beamPart(width, color, opacity) {
-  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: 0 } },
+    vertexShader: beamVert, fragmentShader: beamFrag,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
   const mesh = new THREE.Mesh(beamGeo, mat);
   mesh.visible = false;
   scene.add(mesh);
   return { mesh, mat, width, baseOpacity: opacity };
 }
-for (let i = 0; i < 28; i++) beams.push({ core: beamPart(0.05, 0xffeec2, 0.95), halo: beamPart(0.11, 0xffa64d, 0.13), life: 0, maxLife: 1 });
+for (let i = 0; i < 28; i++) beams.push({ core: beamPart(0.04, 0xffdf9e, 0.95), halo: beamPart(0.09, 0xffa64d, 0.13), life: 0, maxLife: 1 });
 function fireBeam(a, b, hostile) {
   const slot = beams[beamCursor]; beamCursor = (beamCursor + 1) % beams.length;
-  slot.core.mat.color.setHex(hostile ? 0xff9d8a : 0xffeec2);
-  slot.halo.mat.color.setHex(hostile ? 0xff4a3d : 0xffa64d);
+  slot.core.mat.uniforms.uColor.value.setHex(hostile ? 0xff9d8a : 0xffdf9e);
+  slot.halo.mat.uniforms.uColor.value.setHex(hostile ? 0xff4a3d : 0xffa64d);
   slot.core.baseOpacity = hostile ? 0.6 : 0.95;
   slot.halo.baseOpacity = hostile ? 0.07 : 0.13;
   const len = Math.max(a.distanceTo(b), 0.1);
@@ -436,7 +466,7 @@ function fireBeam(a, b, hostile) {
     part.mesh.position.copy(a).add(b).multiplyScalar(0.5);
     part.mesh.scale.set(part.width, part.width, len);
     part.mesh.lookAt(b);
-    part.mat.opacity = part.baseOpacity;
+    part.mat.uniforms.uOpacity.value = part.baseOpacity;
     part.mesh.visible = true;
   }
   slot.life = slot.maxLife = hostile ? 0.07 : 0.09;
@@ -456,6 +486,35 @@ const flashTex = (() => {
   g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
   return new THREE.CanvasTexture(c);
 })();
+// The star flash: a bright core with tapered spikes — the shape a
+// real muzzle bloom throws for a frame or two. Muzzle orbs wear
+// this; impact orbs keep the radial glow above. With the tracer
+// fading out along its length, the star at the muzzle is what
+// keeps a frozen still reading "gunfire" at screenshot size.
+const starTex = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d");
+  const spike = (ang, len, wdt) => {
+    const dx = Math.cos(ang), dy = Math.sin(ang), px = -dy, py = dx;
+    const grad = g.createLinearGradient(64, 64, 64 + dx * len, 64 + dy * len);
+    grad.addColorStop(0, "rgba(255,220,150,0.85)");
+    grad.addColorStop(1, "rgba(255,140,40,0)");
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(64 + px * wdt, 64 + py * wdt);
+    g.lineTo(64 + dx * len, 64 + dy * len);
+    g.lineTo(64 - px * wdt, 64 - py * wdt);
+    g.closePath(); g.fill();
+  };
+  for (let i = 0; i < 4; i++) spike(i * Math.PI / 2 + 0.35, 62, 5.5);
+  for (let i = 0; i < 4; i++) spike(i * Math.PI / 2 + Math.PI / 4 + 0.35, 34, 3.5);
+  const core = g.createRadialGradient(64, 64, 1, 64, 64, 26);
+  core.addColorStop(0, "rgba(255,255,245,1)");
+  core.addColorStop(0.4, "rgba(255,205,110,0.9)");
+  core.addColorStop(1, "rgba(255,140,40,0)");
+  g.fillStyle = core; g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
 const orbs = [];
 let orbCursor = 0;
 for (let i = 0; i < 10; i++) {
@@ -465,8 +524,10 @@ for (let i = 0; i < 10; i++) {
   scene.add(spr);
   orbs.push({ spr, mat, life: 0, maxLife: 1, baseScale: 1 });
 }
-function fireOrb(pos, scale, tint) {
+function fireOrb(pos, scale, tint, star = false) {
   const o = orbs[orbCursor]; orbCursor = (orbCursor + 1) % orbs.length;
+  o.mat.map = star ? starTex : flashTex;
+  o.mat.rotation = star ? Math.random() * Math.PI * 2 : 0;
   o.spr.position.copy(pos);
   o.baseScale = scale * (0.9 + Math.random() * 0.25);
   o.spr.scale.set(o.baseScale, o.baseScale, 1);
@@ -527,7 +588,7 @@ function shoot(dt) {
   if (w.id !== "fists") {
     flash.position.copy(muzzle); flash.intensity = 26;
     lastShotAt = performance.now();
-    fireOrb(flash.position, 0.72, 0xffffff);
+    fireOrb(flash.position, 1.15, 0xffffff, true);
   }
   // Nearest hittable along the ray: hostiles, police on foot, any car.
   let bestT = w.range, hit = null;
@@ -550,13 +611,14 @@ function shoot(dt) {
     // The impact carries the tracer's read (v5): a fat warm spark
     // burst, a tight glow, and a wisp of dust-smoke kicked off the
     // target — the beam itself is only on screen for a few frames.
-    // Trimmed once more (v5.2): nine smaller sparks, not twelve
-    // fat ones — a frozen or slow frame showed the stacked cluster
-    // as one cream blob the size of the man's torso, and the hit
-    // has to read as sparks ON a man who stays visible.
-    burst(end, 0xffc46b, 9, 1.9, 2.0, 1.0, 0.38);
+    // Trimmed once (v5.2) to nine so a frozen cluster could not
+    // blob over the man; back up to thirteen, wider and longer-
+    // lived (v5.6), because with the beam fading along its length
+    // the impact burst carries more of the shot's read — and it
+    // still has to read as sparks ON a man who stays visible.
+    burst(end, 0xffc46b, 13, 2.4, 2.0, 1.0, 0.42);
     if (hit.health !== undefined && hit.kind === undefined) { // a person
-      fireOrb(end, 0.30, 0xffe9c4);
+      fireOrb(end, 0.38, 0xffe9c4);
       // The smoke stays a small accent (v5.1): the first tuning
       // grew three metre-wide grey boxes off a man's chest and the
       // puff swallowed him whole — a hit should read as sparks ON
@@ -589,7 +651,7 @@ function shoot(dt) {
 function damageCar(car, dmg, at) {
   if (car.wrecked) return;
   car.health -= dmg;
-  if (at && !(STAGE && car === S.inCar)) burst(at, 0xff9f43, 4, 2.5, 2);
+  if (at && !(STAGE && car === S.inCar)) burst(at, 0xff9f43, 6, 2.5, 2);
   if (car.health <= 35 && car.health > 0) burst(car.pos.clone().setY(1.4), 0x777777, 2, 1, 2);
   if (car.health <= 0) {
     car.wrecked = true; car.speed = 0;
@@ -871,7 +933,7 @@ function updatePeds(dt) {
           // seen reads as one-way. 0.92 is still a muzzle flash,
           // not a firework: a 0.085 s bloom at the barrel tip.
           const muzzle = new THREE.Vector3(-0.42, 1.35, 0.35).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
-          fireOrb(muzzle, 0.92, 0xffc9b0);
+          fireOrb(muzzle, 0.92, 0xffc9b0, true);
           fireBeam(muzzle, new THREE.Vector3(fp.x, 1.3, fp.z), true);
           // The hit on Raka reads as flecks, not fruit (v5.4): the
           // old burst threw five 0.35 m pink spheres at his chest,
@@ -1639,8 +1701,8 @@ function frame(now) {
       if (slot.life <= 0) continue;
       if (!fxFrozen) slot.life -= dt;
       const k = fxFrozen ? 1 : Math.max(slot.life, 0) / slot.maxLife;
-      slot.core.mat.opacity = slot.core.baseOpacity * k;
-      slot.halo.mat.opacity = slot.halo.baseOpacity * k;
+      slot.core.mat.uniforms.uOpacity.value = slot.core.baseOpacity * k;
+      slot.halo.mat.uniforms.uOpacity.value = slot.halo.baseOpacity * k;
       if (slot.life <= 0) { slot.core.mesh.visible = false; slot.halo.mesh.visible = false; }
     }
     for (const o of orbs) {
