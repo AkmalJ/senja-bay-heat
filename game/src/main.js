@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import { WORLD, WEAPONS, CAR_MODELS, CREW, RADIO, SAVE_KEY, MISSIONS, RACES } from "./config.js";
 import { City, roadLines, nearestRoadCoord, isOnRoad } from "./city.js";
-import { buildCarMesh, buildPersonMesh, animatePerson, updateAimPose, buildHeroGunMesh, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
+import { buildCarMesh, buildPersonMesh, animatePerson, updateAimPose, updateGunAnchor, buildHeroGunMesh, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
 import { HUD } from "./hud.js";
 import { GameAudio } from "./audio.js";
 import { MissionRunner } from "./missions.js";
@@ -1092,6 +1092,7 @@ function updatePeds(dt) {
     // (This replaces the crew stance's old snap, which set the
     // same angles outright after animatePerson.)
     updateAimPose(p.mesh, dt, aimingNow);
+    updateGunAnchor(p.mesh);   // the gun rides in the hand, not on the forearm
     // Run over by the player's car.
     if (S.inCar && Math.abs(S.inCar.speed) > 6 && dist2d(p.pos, S.inCar.pos) < 2.4) {
       p.dead = true; settleCorpse(p.mesh);
@@ -1224,6 +1225,7 @@ function updatePlayer(dt) {
   // first shot), and once the pose is up the frozen moment
   // holds it for the frame.
   updateAimPose(playerMesh, dt, aiming || (fxFrozen && (playerMesh.userData.aimBlend || 0) > 0.05));
+  updateGunAnchor(playerMesh);   // the gun rides in the hand, not on the forearm
   audio.setEngine(false, 0, 0);
 }
 

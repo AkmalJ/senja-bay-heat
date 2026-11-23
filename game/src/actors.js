@@ -234,11 +234,13 @@ function buildGunMesh(opts, rnd) {
     ?? (opts.cop ? (rnd() < 0.35 ? "long" : "pistol")
       : opts.hostile ? (rnd() < 0.45 ? "smg" : rnd() < 0.62 ? "long" : "pistol")
       : "smg");
+  let gripC = null;   // this class's grip centre, gun-local (unscaled)
   if (cls === "pistol") {
     cbox(0.11, 0.17, 0.52, body, 0, 0.03, 0.22, gun);        // frame + barrel
     cbox(0.115, 0.035, 0.5, steel, 0, 0.125, 0.22, gun);    // slide line
     const grip = cbox(0.105, 0.3, 0.14, body, 0, -0.13, 0.0, gun);
     grip.rotation.x = 0.28;
+    gripC = [0, -0.13, 0.0];
     cbox(0.05, 0.06, 0.05, body, 0, 0.17, 0.44, gun);        // front sight
   } else if (cls === "smg") {
     cbox(0.13, 0.21, 0.62, body, 0, 0.04, 0.28, gun);       // receiver
@@ -250,6 +252,7 @@ function buildGunMesh(opts, rnd) {
     cbox(0.09, 0.2, 0.08, body, 0, -0.14, 0.62, gun);       // foregrip
     const grip = cbox(0.09, 0.2, 0.1, body, 0, -0.13, 0.02, gun);
     grip.rotation.x = 0.2;
+    gripC = [0, -0.13, 0.02];
   } else {
     // Long gun (the 12G Laras pattern): black furniture, one
     // long barrel with a steel line, the bead at the muzzle.
@@ -262,12 +265,18 @@ function buildGunMesh(opts, rnd) {
     cbox(0.05, 0.08, 0.05, steel, 0, 0.19, 1.22, gun);      // bead sight
     const grip = cbox(0.09, 0.22, 0.12, body, 0, -0.16, 0.28, gun);
     grip.rotation.x = -0.1;
+    gripC = [0, -0.16, 0.28];
   }
   // Crop-test iteration: at duel distance the SMG/long profiles
   // still shrank to a wedge at the beam's origin, so the two long
   // classes get one more presence step (the pistol stays true to
   // size — it reads at the ranges pistols are seen).
   if (cls !== "pistol") gun.scale.setScalar(1.3);
+  // The grip's centre in gun-group units (the part offsets above,
+  // scaled by the group's own scale): updateGunAnchor places
+  // exactly this point in the bearer's hand, so the weapon hangs
+  // from the fist instead of lying along the forearm.
+  gun.userData.grip = new THREE.Vector3(gripC[0], gripC[1], gripC[2]).multiply(gun.scale);
   return gun;
 }
 
@@ -290,7 +299,10 @@ function buildGunMesh(opts, rnd) {
 // against the standard SMG's rendered 0.169 × 0.751 × 1.690
 // (its 0.13 × 0.578 × 1.30 part envelope at the ×1.3 presence
 // step). Only the size changed; the contrast treatment is the
-// silhouette's message now. Nothing in normal play calls this:
+// silhouette's message now. The owner then picked the size
+// himself from a contact sheet — Panel D, 40% of that matched
+// envelope — so the scale below is the envelope match × 0.40:
+// (0.340, 0.348, 0.412). Nothing in normal play calls this:
 // it is swapped onto a staged mesh only, through the STAGE-only
 // api levers in main.js (setHeroGun / heroGunPed).
 export function buildHeroGunMesh() {
@@ -310,7 +322,8 @@ export function buildHeroGunMesh() {
   const grip = cbox(0.11, 0.26, 0.12, dark, 0, -0.17, 0.02, gun); // pistol grip
   grip.rotation.x = 0.22;
   cbox(0.15, 0.22, 0.34, dark, 0, 0.03, -0.30, gun);      // stock
-  gun.scale.set(0.85, 0.87, 1.03);   // back to the standard SMG's rendered envelope (see header)
+  gun.scale.set(0.340, 0.348, 0.412);   // the owner's contact-sheet pick: Panel D, ×0.40 of the envelope-matched scale (see header)
+  gun.userData.grip = new THREE.Vector3(0, -0.17, 0.02).multiply(gun.scale);
   return gun;
 }
 
@@ -503,6 +516,36 @@ export function updateAimPose(mesh, dt, active) {
     armL.rotation.x += (AIM_ARM_L - armL.rotation.x) * a;
     armL.rotation.z = AIM_ARM_L_Z * a;
   } else if (armL.rotation.z !== 0) armL.rotation.z = 0;
+}
+
+// -- The gun anchor: in the hand, not on the forearm ------------
+// The gun group used to sit at one fixed point on the chest
+// (-0.42, 1.28, 0.02) whatever the arm did: in the aim pose the
+// raised hand landed halfway along the barrel while the grip
+// hung back over the forearm, so the weapon read as lying ON
+// the arm — the owner's word once the pose landed: "posisinya
+// di lengan — taro di tangan" (it's sitting on the arm — put
+// it in the hand). The anchor now tracks the arm: each frame,
+// after the pose is set, the gun is placed so its grip centre
+// (userData.grip, recorded by the builders above) sits in the
+// gun hand — GUN_HAND along armR from the shoulder pivot,
+// following the arm's current rotation. The gun's own rotation
+// and size never change: at rest it hangs at the hand by the
+// thigh, in the aim pose the grip is in the raised fist with
+// the barrel running on from it, and walking swings it with
+// the arm. Call AFTER updateAimPose, wherever that is called.
+const GUN_HAND = 0.51;   // shoulder pivot → grip point, along the arm
+export function updateGunAnchor(mesh) {
+  const gun = mesh.userData.gun;
+  const grip = gun && gun.userData.grip;
+  const armR = mesh.userData.limbs && mesh.userData.limbs.armR;
+  if (!gun || !grip || !armR) return;
+  const th = armR.rotation.x;
+  gun.position.set(
+    armR.position.x - grip.x,
+    armR.position.y - Math.cos(th) * GUN_HAND - grip.y,
+    armR.position.z - Math.sin(th) * GUN_HAND - grip.z
+  );
 }
 
 export function buildHelicopterMesh() {
