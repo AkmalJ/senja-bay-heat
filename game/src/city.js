@@ -320,8 +320,15 @@ export class City {
     ground.receiveShadow = true;
     this.scene.add(ground);
     // Sidewalk slabs under every block read as pavement from the air.
+    // The beach column (bx = 285, centres x 332.5) gets NO slab: the
+    // owner's vista marking wants one sheet of yellow sand from the
+    // boulevard to the water, and the grey slab poking through the
+    // sand plane was the grey block he painted over. The port lays
+    // its yard west of the boulevard, so nothing stands on this
+    // column but beach furniture, which sits on the sand itself.
     const pave = new THREE.MeshLambertMaterial({ color: 0xb8b0a0 });
     for (const bx of roadLines()) for (const bz of roadLines()) {
+      if (bx === 285) continue;   // beach column: sand, unbroken
       const slab = new THREE.Mesh(new THREE.BoxGeometry(WORLD.block - WORLD.roadHalf * 2 + 6, 0.18, WORLD.block - WORLD.roadHalf * 2 + 6), pave);
       slab.position.set(bx + WORLD.block / 2, 0.02, bz + WORLD.block / 2);
       slab.receiveShadow = true;
@@ -336,18 +343,21 @@ export class City {
       for (const along of [0]) {
         const v = new THREE.Mesh(new THREE.PlaneGeometry(WORLD.roadHalf * 2, s), asphalt);
         v.rotation.x = -Math.PI / 2; v.position.set(l, 0.06 + along, 0); v.receiveShadow = true; this.scene.add(v);
-        // The z=190 shore road ends at the boulevard (x=285): the
-        // junction is a T, and the sand runs unbroken to the water.
-        const hLen = l === 190 ? 285 + s / 2 : s;
+        // Every east-west road ends at the boulevard (x=285): the
+        // junctions are T's, and the sand runs unbroken to the water.
+        // (The z=190 shore leg was cut first; the vista round cut
+        // them all — asphalt bands crossing the beach read as more
+        // grey blocks in the owner's marking.)
+        const hLen = 285 + s / 2;
         const h = new THREE.Mesh(new THREE.PlaneGeometry(hLen, WORLD.roadHalf * 2), asphalt);
-        h.rotation.x = -Math.PI / 2; h.position.set(l === 190 ? (285 - s / 2) / 2 : 0, 0.06, l); h.receiveShadow = true; this.scene.add(h);
+        h.rotation.x = -Math.PI / 2; h.position.set((285 - s / 2) / 2, 0.06, l); h.receiveShadow = true; this.scene.add(h);
       }
       // Dashed centre lines.
       const dashMat = new THREE.MeshBasicMaterial({ color: 0xf7d154 });
       for (let d = -s / 2; d < s / 2; d += 9) {
         const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 4.2), dashMat);
         dash.rotation.x = -Math.PI / 2; dash.position.set(l, 0.1, d); this.scene.add(dash);
-        if (l === 190 && d > 285) continue;   // no dashes on the deleted shore leg
+        if (d > 285) continue;   // no dashes on the deleted shore legs
         const dash2 = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 0.5), dashMat);
         dash2.rotation.x = -Math.PI / 2; dash2.position.set(d, 0.1, l); this.scene.add(dash2);
       }
@@ -492,8 +502,11 @@ export class City {
 
   buildStrand(rnd) {
     // Sand, then ocean, along the east edge; a pier reaching into the water.
+    // The sand wears the warm saturated yellow of the water's-edge
+    // band across the whole beach (the old pale cream read grey
+    // under the dusk grade from the title vantage).
     const sand = new THREE.Mesh(new THREE.PlaneGeometry(120, WORLD.size + 200),
-      new THREE.MeshLambertMaterial({ color: 0xeed9a0 }));
+      new THREE.MeshLambertMaterial({ color: 0xf2cb6e }));
     sand.rotation.x = -Math.PI / 2; sand.position.set(330, 0.04, 0); sand.receiveShadow = true; this.scene.add(sand);
     const sea = new THREE.Mesh(new THREE.PlaneGeometry(500, WORLD.size + 500, 30, 30),
       new THREE.MeshLambertMaterial({ color: 0x1d7fa8 }));

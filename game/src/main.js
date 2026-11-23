@@ -694,11 +694,11 @@ function updateTraffic(car, dt) {
     if (Math.abs(Math.sin(car.heading)) > 0.7) car.pos.x = nx + (Math.cos(car.heading) > 0 ? -4 : 4) * Math.sign(Math.sin(car.heading)) * 0 + car.pos.x * 0 + nx * 0 + car.pos.x, car.pos.z = nz + 4 * Math.sign(Math.cos(car.heading));
     else car.pos.x = nx + 4 * Math.sign(Math.sin(car.heading)), car.pos.z = car.pos.z;
   }
-  // The shore road east of the boulevard is gone (the (285, 190)
-  // junction is a T): eastbound traffic on that line turns onto the
-  // boulevard instead of crossing the beach, and anything already
-  // out on the sand leg turns back the way it came.
-  if (Math.abs(car.pos.z - 190) < 13 && f.x > 0.5) {
+  // Every east-west road east of the boulevard is gone (the
+  // junctions are T's): eastbound traffic on any line turns onto
+  // the boulevard instead of crossing the beach, and anything
+  // already out on the sand turns back the way it came.
+  if (Math.abs(car.pos.z - nz) < 13 && f.x > 0.5) {
     if (car.pos.x > 300) car.heading += Math.PI;
     else if (car.pos.x > 264) {
       const north = Math.random() < 0.5;
@@ -1101,6 +1101,52 @@ function restoreMenuVista() {
   menuVistaOn = false;
 }
 
+// ---------- title-screen traffic treatment ----------
+// One more menu-only touch, same contract as the clouds, vista
+// and sun (applied while the menu is up, restored whole the
+// moment play starts; gameplay never sees it). The owner's eye
+// caught ambient vehicles sitting off the road in the poster
+// frame — a box truck parked on the sand, kerbside strays —
+// because the menu runs the whole living city under the vista.
+// While the menu is up, any traffic or parked vehicle inside
+// the vista's ground box that is not on asphalt (a road strip,
+// the boulevard, or a painted kerb bay, which all sit inside
+// the strip tolerance) is hidden; the moment it is back on
+// asphalt — or play starts — it is visible again. The traffic
+// simulation itself is untouched: cars keep driving their
+// routes under the menu, hidden only while off the road.
+let menuTrafficOn = false;
+const menuTrafficHidden = new Set();
+const MENU_TRAFFIC_BOX = { x0: 140, x1: 520, z0: -280, z1: 380 };
+function menuTrafficOnRoad(x, z) {
+  const half = WORLD.roadHalf + 1;
+  if (Math.abs(x - nearestRoadCoord(x)) <= half) return true;            // a north-south strip
+  if (Math.abs(z - nearestRoadCoord(z)) <= half && x <= 297) return true; // an east-west strip (they end at the boulevard)
+  return false;
+}
+function applyMenuTraffic() {
+  menuTrafficOn = true;
+  // Re-show anything the treatment hid that has since left the
+  // box or found its way back onto asphalt.
+  for (const car of [...menuTrafficHidden]) {
+    const p = car.pos;
+    const inBox = p.x >= MENU_TRAFFIC_BOX.x0 && p.x <= MENU_TRAFFIC_BOX.x1 && p.z >= MENU_TRAFFIC_BOX.z0 && p.z <= MENU_TRAFFIC_BOX.z1;
+    if (!inBox || menuTrafficOnRoad(p.x, p.z)) { car.mesh.visible = true; menuTrafficHidden.delete(car); }
+  }
+  for (const car of cars) {
+    if (car.kind !== "traffic" && car.kind !== "parked") continue;
+    const p = car.pos;
+    if (p.x < MENU_TRAFFIC_BOX.x0 || p.x > MENU_TRAFFIC_BOX.x1 || p.z < MENU_TRAFFIC_BOX.z0 || p.z > MENU_TRAFFIC_BOX.z1) continue;
+    if (!menuTrafficOnRoad(p.x, p.z) && car.mesh.visible) { car.mesh.visible = false; menuTrafficHidden.add(car); }
+  }
+}
+function restoreMenuTraffic() {
+  if (!menuTrafficOn) return;
+  for (const car of menuTrafficHidden) car.mesh.visible = true;
+  menuTrafficHidden.clear();
+  menuTrafficOn = false;
+}
+
 // ---------- title-screen setting sun ----------
 // One more menu-only touch, same contract as the clouds, the
 // grade and the vista (applied while the menu is up, restored
@@ -1213,12 +1259,14 @@ function updateCamera(dt) {
     applyMenuClouds();
     applyMenuVista();
     applyMenuSun();
+    applyMenuTraffic();
     if (!menuGradeOn) { renderer.toneMappingExposure = 1.36; menuGradeOn = true; }
     return;
   }
   restoreMenuClouds();
   restoreMenuVista();
   restoreMenuSun();
+  restoreMenuTraffic();
   if (menuGradeOn) { renderer.toneMappingExposure = 1.12; menuGradeOn = false; }
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;
