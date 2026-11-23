@@ -1029,7 +1029,13 @@ function updatePlayer(dt) {
 // moment play starts the sky is restored whole; gameplay never
 // sees any of this.
 let menuCloudsOn = false;
-const MENU_CAM_DIR = new THREE.Vector3(-280, -34, -20).normalize();   // the menu lookAt axis below
+// The title panorama's pose lives in one place: the camera
+// anchor (x, y, z) with a slow ±sway drift along z, looking at
+// (lx, ly, lz). The cloud treatment's view cone and the frame
+// loop's menu branch both derive from these numbers, so the
+// vista can be re-aimed without the two drifting apart.
+const MENU_POSE = { x: 388, y: 28, z: 44, sway: 9, lx: 212, ly: 2, lz: -82 };
+const MENU_CAM_DIR = new THREE.Vector3(MENU_POSE.lx - MENU_POSE.x, MENU_POSE.ly - MENU_POSE.y, MENU_POSE.lz - MENU_POSE.z).normalize();   // the menu lookAt axis
 const cloudScratch = new THREE.Vector3();
 function applyMenuClouds() {
   const clouds = city.skyDome.userData.clouds || [];
@@ -1046,39 +1052,48 @@ function restoreMenuClouds() {
   for (const c of (city.skyDome.userData.clouds || [])) { c.visible = true; c.scale.setScalar(1); }
   menuCloudsOn = false;
 }
+// The poster gets a small exposure lift of its own (the dusk
+// vista under the scrim reads near-black on the wordmark side
+// at the game's 1.12). Menu only: the frame loop restores the
+// game exposure the moment play starts, so gameplay's grade
+// never sees this.
+let menuGradeOn = false;
 
 // ---------- camera, light, day cycle ----------
 function updateCamera(dt) {
-  // Title-screen panorama (v5 revision, owner's word): the first
-  // frame of the game is the strand, not a street canyon. The
-  // camera hangs over the bay at rooftop height and looks west
-  // across the Pantai Senja beachfront: the boulevard runs
-  // diagonally out of the lower frame — palm row and lamp spine
-  // along the kerb, parked cars in the bays, traffic rolling the
-  // road — beach umbrellas and benches scattered on the sand to
-  // the right, the open park strip in the middle ground, and the
-  // downtown towers standing as a skyline in the senja haze
-  // behind, small enough to be a backdrop and not a canyon. The
-  // poster's scrim darkens the left of the frame, so the
-  // wordmark sits over sky and skyline while the beachfront
-  // sells the town on the right. The pose was picked from
-  // rendered probes of the real vista, not guessed. The drift
-  // is a slow ±22 m sway along the shore so the composition
-  // holds at any phase of it, and a fresh camera snaps straight
-  // to the vista instead of flying in from the world origin.
+  // Title-screen panorama (v5, polished): the first frame of
+  // the game is the strand, not a street canyon. The camera
+  // hangs over the sand's east edge and looks west-north-west
+  // along the Pantai Senja beachfront: the boulevard sweeps
+  // diagonally through the frame — palm row and lamp spine
+  // along the kerb, traffic rolling the road — the beach
+  // narrows to a strip beside it with umbrellas at object
+  // scale, and the downtown towers stand as a skyline in the
+  // senja haze behind the wordmark. The pose was picked from
+  // rendered probes of the real vista, not guessed: lower and
+  // along-coast angles were tried and rejected on their own
+  // renders (this world's flat planes turn to diagonal bands
+  // at grazing angles, and from over the water the pier and
+  // the sea's near edge slash the frame's corner at some
+  // drift phases). The drift is a slow ±9 m sway so the
+  // composition holds at any phase of it, and a fresh camera
+  // snaps straight to the vista instead of flying in from the
+  // world origin.
   if (S.mode === "menu") {
     const t = performance.now() / 1000;
-    const cx = 430, cz = -10 + Math.sin(t * 0.045) * 22;
-    const target = new THREE.Vector3(cx, 34 + Math.sin(t * 0.1) * 1.5, cz);
+    const cx = MENU_POSE.x, cz = MENU_POSE.z + Math.sin(t * 0.045) * MENU_POSE.sway;
+    const target = new THREE.Vector3(cx, MENU_POSE.y + Math.sin(t * 0.1) * 1.5, cz);
     if (camera.position.distanceTo(target) > 60) camera.position.copy(target);
     camera.position.lerp(target, 1 - Math.pow(0.02, dt));
-    camera.lookAt(150, 0, -30);
+    camera.lookAt(MENU_POSE.lx, MENU_POSE.ly, MENU_POSE.lz);
     sun.position.set(cx - 300, 58, cz - 170);
-    sun.target.position.set(150, 0, -30);
+    sun.target.position.set(MENU_POSE.lx, MENU_POSE.ly, MENU_POSE.lz);
     applyMenuClouds();
+    if (!menuGradeOn) { renderer.toneMappingExposure = 1.26; menuGradeOn = true; }
     return;
   }
   restoreMenuClouds();
+  if (menuGradeOn) { renderer.toneMappingExposure = 1.12; menuGradeOn = false; }
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;
   if (!pointerLocked) camYaw = angleLerp(camYaw, heading + Math.PI + S.camOffset, dt * (S.inCar ? 2.2 : 1.4));
