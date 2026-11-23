@@ -182,6 +182,42 @@ spawnCar(7, 255, 228, -0.4, "parked");
 spawnCar(6, -160, 152, 1.2, "parked");
 spawnCar(6, -238, -256, 0.7, "parked");
 spawnCar(6, 297, -120, Math.PI, "parked");
+// ---------- the owner's hand marks on the title poster ----------
+// His annotated sys-title10 frame, one revision, vehicles only.
+// Each stroke was projected through the menu camera and PCA-fitted
+// in world space: blue 1.713 (the foreground boulevard pair),
+// yellow 1.516 (the pair up by the crosswalk), red 0.305 (two cars
+// he added on the z=190 street in front of the cargo). The marked
+// cars face exactly those headings — mesh rotation included:
+// spawnCar never rotated a parked mesh, so a heading change alone
+// changed nothing on screen (the owner's repeated "still wrong"
+// verdicts across two rounds were this, not the heading values).
+// Each car keeps its spot, nudged the minimum east/west so the
+// rotated footprint stays wholly on the asphalt, and is flagged
+// ownerMark so the menu traffic treatment presents it at the
+// marked heading instead of hiding it for facing against the flow.
+function ownerFace(x, z, heading, nudgeX) {
+  const car = cars.find((c) => c.kind === "parked" && c.pos.x === x && c.pos.z === z);
+  if (!car) return;
+  car.pos.x += nudgeX;
+  car.heading = heading;
+  car.mesh.rotation.y = heading - Math.PI / 2;
+  car.ownerMark = true;
+}
+ownerFace(276, 222, 1.713, 0.45);   // blue — foreground Senja Coupe, west kerb bay
+ownerFace(294, 230, 1.713, -0.95);  // blue — foreground Angkot Van, east kerb bay
+ownerFace(276, 162, 1.516, 0.4);    // yellow — Senja Coupe by the crosswalk, west kerb bay
+ownerFace(294, 170, 1.516, -0.4);   // yellow — Kijang Sprint by the crosswalk, east kerb bay
+// Red — two new parked cars where he circled them on the z=190
+// street: the upper mark centred in the road's north lane
+// (z = 186), the lower in its south lane (z = 194), both facing
+// the red stroke's heading. Clear of the junction mouth (their
+// east corners reach x 267.6, the boulevard starts at 274) and of
+// the cargo footprints (south corners reach z 196.5, cargo at 204.6).
+const redA = spawnCar(0, 265.9, 186, 0.305, "parked");
+redA.mesh.rotation.y = 0.305 - Math.PI / 2; redA.ownerMark = true;
+const redB = spawnCar(5, 255.4, 194, 0.305, "parked");
+redB.mesh.rotation.y = 0.305 - Math.PI / 2; redB.ownerMark = true;
 // Rolling traffic.
 for (let i = 0; i < 18; i++) {
   const lines = roadLines();
@@ -1231,6 +1267,10 @@ function menuTrafficOnRoad(x, z) {
 // face either way along its road; at a junction either road's
 // flow counts. 0.7 rad of slack covers lane wobble.
 function menuTrafficAligned(car) {
+  // Owner-marked cars (the ownerFace block at the spawns) face the
+  // headings he drew on the title poster, not their lanes' flow —
+  // the facing test must not hide the very cars he marked to be seen.
+  if (car.ownerMark) return true;
   const p = car.pos, half = WORLD.roadHalf + 1;
   const h = Math.atan2(Math.sin(car.heading), Math.cos(car.heading));
   const near = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) <= 0.7;
