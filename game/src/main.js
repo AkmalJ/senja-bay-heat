@@ -7,7 +7,7 @@
 import * as THREE from "three";
 import { WORLD, WEAPONS, CAR_MODELS, CREW, RADIO, SAVE_KEY, MISSIONS, RACES } from "./config.js";
 import { City, roadLines, nearestRoadCoord, isOnRoad } from "./city.js";
-import { buildCarMesh, buildPersonMesh, animatePerson, updateAimPose, updateGunAnchor, buildHeroGunMesh, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
+import { buildCarMesh, buildPersonMesh, animatePerson, updateAimPose, updateGunAnchor, gunMuzzleLocal, buildHeroGunMesh, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
 import { HUD } from "./hud.js";
 import { GameAudio } from "./audio.js";
 import { MissionRunner } from "./missions.js";
@@ -673,18 +673,21 @@ function shoot(dt) {
   const dir = new THREE.Vector3(Math.sin(camYaw + Math.PI), 0, Math.cos(camYaw + Math.PI));
   dir.x += (Math.random() - 0.5) * w.spread * 2; dir.z += (Math.random() - 0.5) * w.spread * 2;
   dir.normalize();
-  // The muzzle is the gun's barrel tip, not a point floating ahead
-  // of the chest: the gun box sits at local (-0.42, 1.3, 0.3) in
-  // the person mesh and runs 0.55 long, so the tip is local
-  // z = 0.58 — rotated by Raka's heading into the world (the same
-  // transform the hostile fire below uses for its muzzles). The
+  // The muzzle is the barrel tip of the gun actually in his
+  // hand: gunMuzzleLocal reads it off the anchored gun (its
+  // position in the mesh plus the tip its builder recorded, per
+  // class), rotated by Raka's heading into the world — the same
+  // transform the hostile fire below uses for its muzzles. The
   // firing stance in updatePlayer keeps his heading on the aim
   // while he shoots, so beam, orb and flash all leave the barrel.
-  const muzzle = new THREE.Vector3(-0.42, 1.32, 0.58).applyAxisAngle(Y_AXIS, player.heading).add(player.pos);
+  // The star orb runs SMALL (0.5, down from 1.15): seated exactly
+  // at the tip it accents the muzzle instead of blooming over
+  // the whole weapon and hiding it (owner's call).
+  const muzzle = (gunMuzzleLocal(playerMesh) ?? new THREE.Vector3(-0.42, 1.32, 0.58)).applyAxisAngle(Y_AXIS, player.heading).add(player.pos);
   if (w.id !== "fists") {
     flash.position.copy(muzzle); flash.intensity = 26;
     lastShotAt = performance.now();
-    fireOrb(flash.position, 1.15, 0xffffff, true);
+    fireOrb(flash.position, 0.5, 0xffffff, true);
   }
   // Nearest hittable along the ray: hostiles, police on foot, any car.
   let bestT = w.range, hit = null;
@@ -1024,14 +1027,16 @@ function updatePeds(dt) {
           audio.shoot("smg");
           // Return fire wears the same signs as the player's — an orb
           // at his muzzle and a beam to the man he is shooting at —
-          // so a two-way fight reads from either side. The hostile
-          // orb runs LARGE (v5.3, owner-ordered): at 0.55 the bloom
-          // never registered past a few metres — not in motion, not
-          // in a still — and a shootout whose return fire cannot be
-          // seen reads as one-way. 0.92 is still a muzzle flash,
-          // not a firework: a 0.085 s bloom at the barrel tip.
-          const muzzle = new THREE.Vector3(-0.42, 1.35, 0.35).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
-          fireOrb(muzzle, 0.92, 0xffc9b0, true);
+          // so a two-way fight reads from either side. The orb sits
+          // on the barrel tip of the gun in his hand (gunMuzzleLocal)
+          // and runs SMALL (0.46): the old 0.92 bloom was seated at a
+          // fixed chest point, ahead of where the anchored gun
+          // actually ends, and its white star covered the weapon —
+          // the owner ordered the spark onto the muzzle and small.
+          // Seated on the true tip, the half-size bloom still marks
+          // the shot without hiding the gun it leaves.
+          const muzzle = (gunMuzzleLocal(p.mesh) ?? new THREE.Vector3(-0.42, 1.35, 0.35)).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
+          fireOrb(muzzle, 0.46, 0xffc9b0, true);
           fireBeam(muzzle, new THREE.Vector3(fp.x, 1.3, fp.z), true);
           // The hit on Raka reads as flecks, not fruit (v5.4): the
           // old burst threw five 0.35 m pink spheres at his chest,
@@ -1061,8 +1066,8 @@ function updatePeds(dt) {
       p.shootCd -= dt;
       if (p.shootCd <= 0) {
         p.shootCd = 0.55 + Math.random() * 0.5;
-        const muzzle = new THREE.Vector3(-0.42, 1.35, 0.58).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
-        fireOrb(muzzle, 1.0, 0xffffff, true);
+        const muzzle = (gunMuzzleLocal(p.mesh) ?? new THREE.Vector3(-0.42, 1.35, 0.58)).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
+        fireOrb(muzzle, 0.5, 0xffffff, true);
         fireBeam(muzzle, new THREE.Vector3(p.aimX, 1.3, p.aimZ), false);
         audio.shoot("smg");
       }

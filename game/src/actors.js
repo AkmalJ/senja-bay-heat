@@ -235,6 +235,7 @@ function buildGunMesh(opts, rnd) {
       : opts.hostile ? (rnd() < 0.45 ? "smg" : rnd() < 0.62 ? "long" : "pistol")
       : "smg");
   let gripC = null;   // this class's grip centre, gun-local (unscaled)
+  let muzzleC = null; // this class's barrel tip, gun-local (unscaled)
   if (cls === "pistol") {
     cbox(0.11, 0.17, 0.52, body, 0, 0.03, 0.22, gun);        // frame + barrel
     cbox(0.115, 0.035, 0.5, steel, 0, 0.125, 0.22, gun);    // slide line
@@ -242,6 +243,7 @@ function buildGunMesh(opts, rnd) {
     grip.rotation.x = 0.28;
     gripC = [0, -0.13, 0.0];
     cbox(0.05, 0.06, 0.05, body, 0, 0.17, 0.44, gun);        // front sight
+    muzzleC = [0, 0.03, 0.48];   // the barrel box's front face
   } else if (cls === "smg") {
     cbox(0.13, 0.21, 0.62, body, 0, 0.04, 0.28, gun);       // receiver
     cbox(0.09, 0.1, 0.42, body, 0, 0.06, 0.78, gun);        // barrel
@@ -253,6 +255,7 @@ function buildGunMesh(opts, rnd) {
     const grip = cbox(0.09, 0.2, 0.1, body, 0, -0.13, 0.02, gun);
     grip.rotation.x = 0.2;
     gripC = [0, -0.13, 0.02];
+    muzzleC = [0, 0.06, 0.99];   // the barrel box's front face
   } else {
     // Long gun (the 12G Laras pattern): black furniture, one
     // long barrel with a steel line, the bead at the muzzle.
@@ -266,6 +269,7 @@ function buildGunMesh(opts, rnd) {
     const grip = cbox(0.09, 0.22, 0.12, body, 0, -0.16, 0.28, gun);
     grip.rotation.x = -0.1;
     gripC = [0, -0.16, 0.28];
+    muzzleC = [0, 0.08, 1.26];   // the barrel box's front face
   }
   // Crop-test iteration: at duel distance the SMG/long profiles
   // still shrank to a wedge at the beam's origin, so the two long
@@ -277,6 +281,11 @@ function buildGunMesh(opts, rnd) {
   // exactly this point in the bearer's hand, so the weapon hangs
   // from the fist instead of lying along the forearm.
   gun.userData.grip = new THREE.Vector3(gripC[0], gripC[1], gripC[2]).multiply(gun.scale);
+  // The barrel tip, recorded the same way: main.js seats the
+  // muzzle flash (and starts the beam) exactly here, so the
+  // flash blooms off the end of the gun actually held — at its
+  // real length — instead of off a fixed point on the chest.
+  gun.userData.muzzle = new THREE.Vector3(muzzleC[0], muzzleC[1], muzzleC[2]).multiply(gun.scale);
   return gun;
 }
 
@@ -324,6 +333,7 @@ export function buildHeroGunMesh() {
   cbox(0.15, 0.22, 0.34, dark, 0, 0.03, -0.30, gun);      // stock
   gun.scale.set(0.340, 0.348, 0.412);   // the owner's contact-sheet pick: Panel D, ×0.40 of the envelope-matched scale (see header)
   gun.userData.grip = new THREE.Vector3(0, -0.17, 0.02).multiply(gun.scale);
+  gun.userData.muzzle = new THREE.Vector3(0, 0.09, 1.165).multiply(gun.scale);   // the muzzle brake's front face
   return gun;
 }
 
@@ -546,6 +556,26 @@ export function updateGunAnchor(mesh) {
     armR.position.y - Math.cos(th) * GUN_HAND - grip.y,
     armR.position.z - Math.sin(th) * GUN_HAND - grip.z
   );
+}
+
+// -- The muzzle: the barrel tip of the gun actually held --------
+// The flash used to bloom off a fixed point on the chest
+// ((-0.42, 1.32, 0.58) in main.js, written when the gun sat at
+// one fixed anchor). Once the gun moved into the hand — and the
+// staged hero SMG shrank to the owner's Panel-D pick — that
+// point floated ahead of the little gun and its big white star
+// covered the weapon outright: "senjatanya masih kurang jelas
+// — percikannya taro di moncong senjata, gausah gede gede"
+// (the gun still doesn't read — put the spark at the gun's
+// muzzle, and don't make it big). The muzzle is therefore read
+// off the gun itself: its anchored position plus the barrel tip
+// its builder recorded (userData.muzzle), in person-mesh local
+// space; the caller rotates it by the bearer's heading into the
+// world, the same transform the beams already use.
+export function gunMuzzleLocal(mesh, out = new THREE.Vector3()) {
+  const gun = mesh.userData.gun;
+  if (!gun || !gun.userData.muzzle) return null;
+  return out.copy(gun.position).add(gun.userData.muzzle);
 }
 
 export function buildHelicopterMesh() {
