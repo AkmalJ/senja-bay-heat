@@ -1863,6 +1863,7 @@ const api = {
   setCamShoulder(v) { S.camShoulder = v; },
   setCamBack(v) { S.camBack = v; },
   setPackagesFound(n) { activities.setFound(n); },
+  setRaceBest(name, secs) { activities.best[name] = secs; },
   startRace(i) { activities.beginRace(i, true); },
   parkCar(modelName, x, z, heading) {
     const idx = Math.max(0, CAR_MODELS.findIndex((m) => m.name === modelName));

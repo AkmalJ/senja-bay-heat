@@ -14,7 +14,7 @@ export function stageScene(name, api) {
       // (The old 16.35 staging rendered as pale midday blue — the
       // one hour the senja lock was written to abolish.)
       api.setClock(18.38);
-      api.setStats({ money: 18450, respect: 1675, health: 72, armor: 55 });
+      api.setStats({ money: 18450, respect: 1675, health: 72, armor: 55, stolen: 7 });
       api.startJobAt(5, 1);                    // SIRENS AT DUSK, escape stage
       api.placeInCar("Pelo GT", 285, 22, Math.PI, 31); // heading north up the strand road
       // (car sits 8 m south of the z=30 palm row so no clipped crown
@@ -39,6 +39,13 @@ export function stageScene(name, api) {
       api.addPed(298, 52, {});
       api.addPed(273, 66, {});
       api.setPackagesFound(5);
+      // Career coherence for the town board (the map shot rides
+      // this same staged save): a fixer five jobs in with money
+      // and packages banked has lifted cars and won a race — the
+      // ledger's zeros read as a bug, not a career. Strand Sprint
+      // banked at 48.6 s, just under its 50 s par; the other two
+      // races stay unrun.
+      api.setRaceBest("STRAND SPRINT", 48.6);
       api.setRadio(0);
       api.dialogue("Sinta", "DRIVER — CREW", "Every cruiser in the bay and Air One want that orange Pelo. Forty seconds on the Strand, then you vanish.");
       break;
