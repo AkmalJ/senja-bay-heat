@@ -1035,7 +1035,7 @@ let menuCloudsOn = false;
 // (lx, ly, lz). The cloud treatment's view cone and the frame
 // loop's menu branch both derive from these numbers, so the
 // vista can be re-aimed without the two drifting apart.
-const MENU_POSE = { x: 388, y: 28, z: 44, sway: 9, lx: 212, ly: 2, lz: -82 };
+const MENU_POSE = { x: 205, y: 47, z: 235, sway: 9, lx: 432, ly: 0, lz: 38 };
 const MENU_CAM_DIR = new THREE.Vector3(MENU_POSE.lx - MENU_POSE.x, MENU_POSE.ly - MENU_POSE.y, MENU_POSE.lz - MENU_POSE.z).normalize();   // the menu lookAt axis
 const cloudScratch = new THREE.Vector3();
 function applyMenuClouds() {
@@ -1060,23 +1060,55 @@ function restoreMenuClouds() {
 // never sees this.
 let menuGradeOn = false;
 
+// ---------- title-screen vista treatment ----------
+// Two more menu-only touches, same contract as the clouds and
+// the grade (applied while the menu is up, restored whole the
+// moment play starts; gameplay never sees either):
+//  - The race-gate pillars hide. A translucent green column
+//    standing in the middle of the poster vista reads as a
+//    rendering bug, not as a place; the gates come back with
+//    play, and the race code owns their visibility from there.
+//  - The bay's swell calms to a tenth. From any elevated
+//    vantage the full swell's troughs dip below the ground
+//    plane (y -0.05) wherever it runs under the near-shore
+//    water, punching land-coloured holes through the sea —
+//    the "islands" that sank every earlier water-inclusive
+//    title probe. Calmed, the surface stays above the ground
+//    everywhere and the bay reads as one sheet of dusk water
+//    with the boats still under way on it.
+let menuVistaOn = false;
+function applyMenuVista() {
+  if (menuVistaOn) return;
+  for (const g of activities.gates) g.mesh.visible = false;
+  menuVistaOn = true;
+}
+function restoreMenuVista() {
+  if (!menuVistaOn) return;
+  for (const g of activities.gates) g.mesh.visible = true;
+  menuVistaOn = false;
+}
+
 // ---------- camera, light, day cycle ----------
 function updateCamera(dt) {
-  // Title-screen panorama (v5, polished): the first frame of
-  // the game is the strand, not a street canyon. The camera
-  // hangs over the sand's east edge and looks west-north-west
-  // along the Pantai Senja beachfront: the boulevard sweeps
-  // diagonally through the frame — palm row and lamp spine
-  // along the kerb, traffic rolling the road — the beach
-  // narrows to a strip beside it with umbrellas at object
-  // scale, and the downtown towers stand as a skyline in the
-  // senja haze behind the wordmark. The pose was picked from
-  // rendered probes of the real vista, not guessed: lower and
-  // along-coast angles were tried and rejected on their own
-  // renders (this world's flat planes turn to diagonal bands
-  // at grazing angles, and from over the water the pier and
-  // the sea's near edge slash the frame's corner at some
-  // drift phases). The drift is a slow ±9 m sway so the
+  // Title-screen panorama (v5, fixed): the first frame of the
+  // game is the whole strand AND the bay it sits on. The camera
+  // hangs over the city's south-east rooftops and looks
+  // east-north-east across Pantai Senja: the boulevard cuts
+  // diagonally through the foreground — palm row and lamp
+  // spine along the kerb, traffic rolling both ways — the
+  // beach runs as a strip beside it with umbrellas at object
+  // scale, and then the water itself: the shoreline crosses
+  // the frame diagonally, the pier juts into the bay, boats
+  // ride their circuits, and the downtown towers hold the
+  // frame's left edge behind the wordmark. The earlier pose
+  // (over the sand looking back west) never had the water in
+  // frame at all, and the owner called the poster on it. This
+  // pose was picked from rendered probes of the real vista,
+  // not guessed: over-water and along-coast grazes were tried
+  // again and rejected again on their own renders (the flat
+  // planes turn to diagonal bands), and the water only reads
+  // as a place with the menu vista treatment above — calmed
+  // swell, gates hidden. The drift is a slow ±9 m sway so the
   // composition holds at any phase of it, and a fresh camera
   // snaps straight to the vista instead of flying in from the
   // world origin.
@@ -1090,10 +1122,12 @@ function updateCamera(dt) {
     sun.position.set(cx - 300, 58, cz - 170);
     sun.target.position.set(MENU_POSE.lx, MENU_POSE.ly, MENU_POSE.lz);
     applyMenuClouds();
-    if (!menuGradeOn) { renderer.toneMappingExposure = 1.26; menuGradeOn = true; }
+    applyMenuVista();
+    if (!menuGradeOn) { renderer.toneMappingExposure = 1.36; menuGradeOn = true; }
     return;
   }
   restoreMenuClouds();
+  restoreMenuVista();
   if (menuGradeOn) { renderer.toneMappingExposure = 1.12; menuGradeOn = false; }
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;
@@ -1389,7 +1423,10 @@ function updateAmbientWater(now) {
     if (!city.sea.userData.base) city.sea.userData.base = Float32Array.from(pos.array);
     const base = city.sea.userData.base, t = now / 1000;
     for (let i = 0; i < pos.count; i++) {
-      pos.array[i * 3 + 2] = Math.sin(base[i * 3] * 0.055 + t * 1.25) * 0.3 + Math.cos(base[i * 3 + 1] * 0.045 + t * 0.85) * 0.26;
+      // The title screen calms the swell (see the vista
+      // treatment above): at full height the troughs breach
+      // the ground plane under the near-shore water.
+      pos.array[i * 3 + 2] = (Math.sin(base[i * 3] * 0.055 + t * 1.25) * 0.3 + Math.cos(base[i * 3 + 1] * 0.045 + t * 0.85) * 0.26) * (menuVistaOn ? 0.1 : 1);
     }
     pos.needsUpdate = true;
   }
