@@ -19,11 +19,15 @@ export function stageScene(name, api) {
       api.placeInCar("Pelo GT", 285, 22, Math.PI, 31); // heading north up the strand road
       // (car sits 8 m south of the z=30 palm row so no clipped crown
       // hangs into the top-right of the frame)
-      // Cam offset is a whisper, not a swing: at -0.42 the view axis
-      // cut ~24° across the boulevard and the beach swallowed the
-      // frame's right third; -0.15 keeps the road running away under
-      // Air One's cone with the promenade as a border, not a subject.
-      api.setCamOffset(-0.15);
+      // Cam offset -0.42: the view axis cuts ~24° across the
+      // boulevard, the road runs away diagonally, the beach and sea
+      // border the frame's right. The -0.15 experiment (545a4f5)
+      // looked straight down the road and crowded the mid-frame
+      // into a roadblock wall — the owner judged the earlier
+      // -0.42 cover better and ordered it restored (cover-fix
+      // round): same diagonal, now under the senja clock and the
+      // widened searchlight cone.
+      api.setCamOffset(-0.42);
       api.setWanted(4, true);
       api.spawnChasePack(4, 16);
       api.deployHelicopter();
