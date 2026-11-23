@@ -469,7 +469,7 @@ export class City {
     const backMat = new THREE.MeshLambertMaterial({ color: 0x5d4128 });
     const stringMatS = new THREE.MeshBasicMaterial({ color: 0x2b2b26 });
     let n = 0;
-    const stall = (x, z, ry) => {
+    const stall = (x, z, ry, noSign = false) => {
       const g = new THREE.Group();
       // THE OPEN FRONT (owner's critique, answered): a stall is
       // not a solid block. The old body was a 2.3 m box with the
@@ -515,12 +515,14 @@ export class City {
       // The name board HANGS from the canopy's front lip on two
       // strings, over the open band — where a real pasar board
       // hangs — instead of pasted on the old solid face.
-      const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 0.85),
-        new THREE.MeshBasicMaterial({ map: signTexture(names[n % names.length], "", signBgs[n % 5], "#ffd98a") }));
-      sign.position.set(0, 2.42, 3.30); g.add(sign);
-      for (const sx of [-2.3, 2.3]) {
-        const str = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.03), stringMatS);
-        str.position.set(sx, 2.95, 3.30); g.add(str);
+      if (!noSign) {
+        const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 0.85),
+          new THREE.MeshBasicMaterial({ map: signTexture(names[n % names.length], "", signBgs[n % 5], "#ffd98a") }));
+        sign.position.set(0, 2.42, 3.30); g.add(sign);
+        for (const sx of [-2.3, 2.3]) {
+          const str = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.03), stringMatS);
+          str.position.set(sx, 2.95, 3.30); g.add(str);
+        }
       }
       // Counter goods, four vendor patterns rotating stall by
       // stall — produce mounds, a crate stack, hanging bags under
@@ -630,6 +632,19 @@ export class City {
         // stalls, so every other stall in the market keeps the
         // name, pattern and seller it has always had.
         if (rz === 104.4 && (k === 2 || k === 3)) { n++; continue; }
+        // THE POCKET'S OWN STALLS (market polish, owner's word):
+        // aisle 1's south row at k = 2, 3 stands directly behind
+        // the duel pocket, and from the fight's camera its two
+        // BACKS formed one tall, blank wall across the pocket's
+        // back — a market showing its back to its own
+        // crossroads. They turn around here and open onto the
+        // pocket instead: counter, goods and seller facing the
+        // forecourt, under the LAUT SEGAR board hung across the
+        // mouth (their own hanging signs are suppressed — the
+        // board is the forecourt's sign). Colliders and the n
+        // sequence are untouched, so every other stall in the
+        // market keeps its name, pattern and seller.
+        if (rz === 98.55 && (k === 2 || k === 3)) { stall(x, rz, 0, true); continue; }
         stall(x, rz, ry);
       }
     }
