@@ -199,7 +199,8 @@ function spawnPed(x, z, opts = {}) {
   mesh.position.set(x, 0, z);
   scene.add(mesh);
   const ped = { mesh, pos: mesh.position, heading: Math.random() * 6.28, phase: Math.random() * 6, speed: 1.6 + Math.random() * 1.4,
-    tx: x, tz: z, hostile: !!opts.hostile, health: opts.hostile ? 60 : 30, cop: !!opts.cop, dead: false, shootCd: 1 + Math.random() * 2, flee: 0 };
+    tx: x, tz: z, hostile: !!opts.hostile, health: opts.hostile ? 60 : 30, cop: !!opts.cop, dead: false, shootCd: 1 + Math.random() * 2, flee: 0,
+    crew: !!opts.crew, aimX: opts.aimAt ? opts.aimAt[0] : 0, aimZ: opts.aimAt ? opts.aimAt[1] : 0, aimPose: !!opts.crew };
   peds.push(ped);
   return ped;
 }
@@ -954,6 +955,25 @@ function updatePeds(dt) {
           if (S.inCar) damageCar(S.inCar, 2, null); else hurtPlayer(4);
         }
       }
+    } else if (p.crew) {
+      // Staged crew backup — spawned ONLY by ?stage= screenshot
+      // stagings (the crew flag is set nowhere else), so normal
+      // play never grows one. He stands his ground, keeps his gun
+      // up on his assigned target (aimPose: the raised-arm stance
+      // updatePlayer gives Raka, re-applied below animatePerson),
+      // and trades COSMETIC fire with it — a real beam and star
+      // orb from his own barrel, but no damage either way. Set
+      // dressing for the two-way-fight read, not a combatant.
+      move = 0;
+      p.heading = Math.atan2(p.aimX - p.pos.x, p.aimZ - p.pos.z);
+      p.shootCd -= dt;
+      if (p.shootCd <= 0) {
+        p.shootCd = 0.55 + Math.random() * 0.5;
+        const muzzle = new THREE.Vector3(-0.42, 1.35, 0.58).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
+        fireOrb(muzzle, 1.0, 0xffffff, true);
+        fireBeam(muzzle, new THREE.Vector3(p.aimX, 1.3, p.aimZ), false);
+        audio.shoot("smg");
+      }
     } else if (p.flee > 0 || (dPlayer < 6 && (mouseDown || S.wanted >= 2))) {
       p.flee = Math.max(p.flee - dt, 0.4);
       p.heading = Math.atan2(p.pos.x - fp.x, p.pos.z - fp.z);
@@ -973,6 +993,10 @@ function updatePeds(dt) {
     p.pos.x = nx; p.pos.z = nz;
     p.mesh.rotation.y = p.heading;
     animatePerson(p.mesh, p.phase, move);
+    // The crew stance: animatePerson parks both arms at his
+    // sides, so a staged backup's raised gun arm is re-applied
+    // after it — the same angles updatePlayer sets for Raka.
+    if (p.aimPose) { const l = p.mesh.userData.limbs; if (l) { l.armR.rotation.x = -1.5; l.armL.rotation.x = -0.55; } }
     // Run over by the player's car.
     if (S.inCar && Math.abs(S.inCar.speed) > 6 && dist2d(p.pos, S.inCar.pos) < 2.4) {
       p.dead = true; settleCorpse(p.mesh);

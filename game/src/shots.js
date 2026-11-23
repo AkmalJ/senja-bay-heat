@@ -223,9 +223,11 @@ export function stageScene(name, api) {
     }
     case "port":
     case "portshoulder":
-    case "portwide": {
+    case "portwide":
+    case "portduel": {
       const SHOULDER = name === "portshoulder";
       const WIDE = name === "portwide";
+      const DUEL = name === "portduel";
       // Dusk-night shootout at Pelabuhan. Three stagings taught
       // the geography the hard way: the apron is a featureless
       // slab (casts 53–55: fog void, flash disc, no backdrop),
@@ -273,8 +275,27 @@ export function stageScene(name, api) {
       api.setClock(19.8);
       api.setStats({ money: 18450, respect: 2210, health: 100, armor: 70 });
       api.startJobAt(6, 1);                    // THE LONG TABLE, clear-the-port-road stage
-      api.placeOnFoot(196, 189.5, Math.PI / 2); // port road at the container cluster, firing east
-      api.setCamOffset(0);
+      // THE DUEL VARIANT (?stage=portduel, owner's annotation of
+      // the fx-port frame: "karakter kita ngadepnya ke salah satu
+      // karakter yang ditandain biru itu, jadi senjata karakter
+      // kita keliatan" — turn him onto the circled pair so his
+      // weapon reads). Raka starts turned 45° right of east
+      // (heading π/4, facing SE) and the capture fights him on
+      // the +0.20 offset aim (0.985 rad): his target T1 stands
+      // exactly on that ray at (209.7, 198.6), 16.5 m out in
+      // front of the container face, with T2 beside him at
+      // (208.0, 200.8) — the pair from the owner's blue circles,
+      // re-spotted inside the 17 m engage ring so BOTH shoot
+      // back. In fx-port the camera sat on his anti-gun side
+      // (dot of camera offset vs gun-side dir −1.3) and the gun
+      // hid behind his back; here the wide levers put the
+      // camera on his gun side (+2.5 at the fight offset, more
+      // after the capture swing) and his body turns across the
+      // view — gun arm up, barrel across his silhouette. One
+      // crew ally (Bima's rust shirt) stands at his right,
+      // (193.8, 191.8), gun up on T1, trading cosmetic fire.
+      api.placeOnFoot(196, 189.5, DUEL ? Math.PI / 4 : Math.PI / 2); // port road at the container cluster, firing east
+      api.setCamOffset(DUEL ? 0.20 : 0);
       // THE SHOULDER VARIANT (?stage=portshoulder, owner's
       // standing camera taste: "dari bahu" — from the shoulder).
       // The camShoulder lever steps the follow camera and its
@@ -316,7 +337,7 @@ export function stageScene(name, api) {
       // behind the panel, and a farther fan (cast89 fan B)
       // compresses instead of spreading — screen reach is
       // angular, not linear.
-      if (WIDE) { api.setCamShoulder(1.5); api.setCamBack(1.8); }
+      if (WIDE || DUEL) { api.setCamShoulder(1.5); api.setCamBack(1.8); }
       // THE ANGLE FIX (owner's review of the lively candidate:
       // "musuh malah ketutupan karakter kita" — the enemies are
       // covered by our own character). The cast77–79 probes
@@ -360,12 +381,20 @@ export function stageScene(name, api) {
       // SHOULDER note above); the first two never move — the
       // near man is the on-ray kill and the primary is Raka's
       // standing target, both chained to the duel ray.
-      const GANG = WIDE
+      const GANG = DUEL
+        ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.5, 193.5, false], [208.5, 196.8, true], [209.7, 198.6, false], [208.0, 200.8, true]]
+        : WIDE
         ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.5, 193.5, false], [208.5, 196.8, true], [211.0, 201.5, false], [213.5, 205.5, true]]
         : SHOULDER
         ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.9, 194.6, false], [208.0, 197.2, true], [208.8, 199.8, false], [209.4, 202.2, true]]
         : [[200.2, 189.9, false], [203.3, 190.3, true], [205.6, 191.9, false], [208.7, 193.9, true], [206.7, 198.7, false], [201.5, 196.1, true]];
       for (const [gx, gz, vest] of GANG) api.addPed(gx, gz, { hostile: true, gun: true, shirt: 0x6c3483, vest });
+      // THE ALLY (duel variant only): Bima at Raka's right hand,
+      // rust mechanic's shirt and a slate cap — never gang
+      // purple, never Raka's teal. A crew-flag ped: he holds his
+      // spot, keeps his SMG up on T1 and trades cosmetic fire
+      // with the pair (see the crew branch in updatePeds).
+      if (DUEL) api.addPed(193.8, 191.8, { gun: true, weapon: "smg", crew: true, aimAt: [209.7, 198.6], shirt: 0xb3541e, cap: 0x2e4a5a });
       // Dockers pinned at the frame's edges and two unpinned
       // reactors inside the panic radius. In the shoulder
       // variant the east dockers step past the re-fanned line
@@ -373,7 +402,7 @@ export function stageScene(name, api) {
       const docker = (x, z, speed, opts) => { const p = api.addPed(x, z, opts || {}); if (p) p.speed = speed; };
       docker(189, 185.5, 0.3, { cap: 0xf5c518 });
       docker(190.5, 186.5, 0.35, {});
-      if (WIDE) { docker(219, 203.5, 0.3, { cap: 0xe07a3f }); docker(220.5, 204.5, 0.35, {}); }
+      if (WIDE || DUEL) { docker(219, 203.5, 0.3, { cap: 0xe07a3f }); docker(220.5, 204.5, 0.35, {}); }
       else if (SHOULDER) { docker(216, 200.5, 0.3, { cap: 0xe07a3f }); docker(217.5, 201.5, 0.35, {}); }
       else { docker(211.5, 198.5, 0.3, { cap: 0xe07a3f }); docker(213, 199.5, 0.35, {}); }
       api.addPed(192, 183.5, {});
@@ -382,7 +411,7 @@ export function stageScene(name, api) {
       api.addPed(219.5, 191, {});
       // The drama anchor and yard dressing. In the shoulder
       // variant the Kijang waits at the fan's east end.
-      if (WIDE) api.parkCar("Kijang Sprint", 215.5, 202, 0.55);
+      if (WIDE || DUEL) api.parkCar("Kijang Sprint", 215.5, 202, 0.55);
       else if (SHOULDER) api.parkCar("Kijang Sprint", 212.5, 200.5, 0.55);
       else api.parkCar("Kijang Sprint", 204, 197, 0.55);
       api.parkCar("Kargo Box Truck", 233, 201, 0.5);
