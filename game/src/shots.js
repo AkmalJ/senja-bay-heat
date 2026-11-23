@@ -283,7 +283,36 @@ export function stageScene(name, api) {
       api.addPed(200.2, 189.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
       api.addPed(203.8, 190.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       api.addPed(202.9, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(206.8, 192.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(206.8, 193.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      // THE LIVELY CANDIDATE (owner's ask: "bikin adegan
+      // tembaknya lebih hidup"): the standing frame fields
+      // three guns + the corpse; this variant fields FIVE
+      // standing guns + the corpse — the south line extends
+      // east along the container frontage as a shallow ARC,
+      // each step east also stepping south (192.9 → 193.9 →
+      // 194.8) so the men separate diagonally in projection
+      // instead of stacking along one lane (cast71's straight
+      // 192.9 line lost its far men behind the burning car):
+      //   east-mid (+14.6, +5.3 S) at (210.6, 194.8) — the
+      //     arc's fourth man, in front of the container faces.
+      //   south bookend (+5.5, +6.0 S) at (201.5, 195.5) —
+      //     the line's near end, south of the corpse patch:
+      //     three far-end spots all failed on evidence —
+      //     the south spots (190.8, 191.6) projected onto
+      //     the burning Kijang and the flames ate the man,
+      //     the north lane (186.8) threw him past the 65%
+      //     window edge, and the road's centre line at
+      //     20.5 m is a live traffic lane that shoved him
+      //     out of his pin. The fifth gun instead closes
+      //     the line's WEST end, big in the foreground
+      //     between the corpse and the primary, 6 m south
+      //     of the ray — far outside the pick tolerance,
+      //     so the fire walk is untouched.
+      // Two extra unpinned reactors at the yard's east edge
+      // flee through the frame's depth when the shooting
+      // starts — crowd life at the edges, clear of the lanes.
+      api.addPed(210.6, 194.8, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(201.5, 195.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // Dockers pinned at the frame's edges and two unpinned
       // reactors inside the panic radius.
       const docker = (x, z, speed, opts) => { const p = api.addPed(x, z, opts || {}); if (p) p.speed = speed; };
@@ -293,6 +322,8 @@ export function stageScene(name, api) {
       docker(213, 199.5, 0.35, {});
       api.addPed(192, 183.5, {});
       api.addPed(193, 196, {});
+      api.addPed(218, 195, {});
+      api.addPed(219.5, 191, {});
       // The drama anchor and yard dressing.
       api.parkCar("Kijang Sprint", 204, 197, 0.55);
       api.parkCar("Kargo Box Truck", 233, 201, 0.5);
