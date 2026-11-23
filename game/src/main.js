@@ -5,7 +5,7 @@
 // cycle, saving, and the staged screenshot scenes.
 
 import * as THREE from "three";
-import { WORLD, WEAPONS, CAR_MODELS, CREW, RADIO, SAVE_KEY } from "./config.js";
+import { WORLD, WEAPONS, CAR_MODELS, CREW, RADIO, SAVE_KEY, MISSIONS, RACES } from "./config.js";
 import { City, roadLines, nearestRoadCoord, isOnRoad } from "./city.js";
 import { buildCarMesh, buildPersonMesh, animatePerson, buildHelicopterMesh, buildCrateMesh, buildMarkerMesh } from "./actors.js";
 import { HUD } from "./hud.js";
@@ -56,8 +56,11 @@ const fx = new Effects(scene);
 // ---------- game state ----------
 const S = {
   mode: "menu",            // menu | play | wasted
-  clock: 15.5,             // hour of day
+  clock: 18.4,             // hour of day — the bay wakes at dusk, on brand
   money: 850, respect: 0,
+  mapOpen: false,          // the town board (Tab) is up; the world holds still
+  stolen: 0,               // career count of cars lifted, for the ledger
+  dispatchLine: "", dispatchLineT: 0,  // the dispatcher's freshest narration
   health: 100, armor: 50,
   wanted: 0, heatHold: 0, searchTimer: 0, searching: false, crimeCooldown: 0,
   inCar: null,
@@ -269,6 +272,10 @@ let mouseDown = false, camYaw = 2.6, camPitch = 0.32, pointerLocked = false;
 addEventListener("keydown", (e) => {
   keys[e.code] = true;
   if (S.mode !== "play") return;
+  // The town board: Tab opens it, Tab or Esc puts it away. While it
+  // is up the world holds still and no other key reaches the game.
+  if (e.code === "Tab") { e.preventDefault(); toggleMap(); return; }
+  if (S.mapOpen) { if (e.code === "Escape") toggleMap(); return; }
   if (e.code === "KeyE") tryEnterExitCar();
   if (e.code === "Digit1") selectWeaponIdx(0);
   if (e.code === "Digit2") selectWeaponIdx(1);
@@ -295,6 +302,19 @@ addEventListener("mousemove", (e) => {
   }
 });
 
+// The town board (map & ledger). Opening it stills the world —
+// the frame loop skips the simulation while S.mapOpen — and drops
+// the pointer lock so the board can actually be read.
+function toggleMap() {
+  S.mapOpen = !S.mapOpen;
+  document.getElementById("mapScreen").style.display = S.mapOpen ? "block" : "none";
+  if (S.mapOpen) {
+    if (document.pointerLockElement) document.exitPointerLock();
+    for (const k in keys) keys[k] = false;
+    mouseDown = false;
+  }
+}
+
 function selectWeaponIdx(i) {
   const w = WEAPONS[i];
   if (w.id !== "fists" && !S.unlocked[w.id]) { hud.toast(w.name + " — LOCKED", "Finish more jobs to unlock it"); return; }
@@ -314,10 +334,24 @@ function useCrew(i) {
 }
 
 // ---------- crime & wanted ----------
+// The dispatcher's voice: event-driven narration for the dispatch
+// panel, in the SBPD's own words and our own district names. A line
+// is set by the event itself (a shot, a theft called in, a response
+// escalating) and stays fresh for a few seconds; nothing here fires
+// on a random timer.
+function dispatchSay(text, hold = 7) {
+  S.dispatchLine = text;
+  S.dispatchLineT = hold;
+}
 function commitCrime(level) {
   if (S.platesTimer > 0) level = Math.min(level, S.wanted);
+  const before = S.wanted;
   S.wanted = clamp(Math.max(S.wanted, level), 0, 5);
   S.searchTimer = 0; S.searching = false;
+  if (S.wanted > before && S.wanted >= 3 && S.dispatchLineT <= 0) {
+    const d = city.districtAt(focusPos().x, focusPos().z);
+    dispatchSay(`All units converging on ${d.name} — bring him in before the light goes.`);
+  }
 }
 
 // ---------- cars: enter / exit / steal ----------
@@ -339,8 +373,13 @@ function tryEnterExitCar() {
     commitCrime(2);
     hud.toast("CAR TAKEN", best.model.name + " — the driver will tell everyone");
     audio.crash(0.2);
+    // And the driver does tell everyone: the call reaches dispatch
+    // in the district where it happened, in the SBPD's own words.
+    const d = city.districtAt(best.pos.x, best.pos.z);
+    dispatchSay(`A witness called it in — ${best.model.name} lifted in ${d.name}. Watch the strand roads.`);
   }
   if (best.kind === "parked" && best.model.name === "Pelo GT" && missions.index === 0 && missions.stage === 0) commitCrime(2);
+  if (best.kind !== "player") S.stolen++;   // re-entering your own car is not a fresh lift
   best.kind = "player";
   addHeadlightPool(best);
   addHeadlightCones(best);
@@ -533,7 +572,17 @@ function shoot(dt) {
       if (hit === targetCar) commitCrime(3);
     }
   }
-  if (w.id !== "fists") commitCrime(Math.max(S.wanted, 2));
+  if (w.id !== "fists") {
+    commitCrime(Math.max(S.wanted, 2));
+    // Gunfire is heard all over the district — dispatch says so,
+    // naming the district the shots actually came from. Throttled
+    // by the freshness timer so a long firefight is one report,
+    // not a stutter.
+    if (S.dispatchLineT <= 2) {
+      const d = city.districtAt(player.pos.x, player.pos.z);
+      dispatchSay(`Shots fired in ${d.name} — repeat, shots fired. Units respond.`);
+    }
+  }
 }
 function damageCar(car, dmg, at) {
   if (car.wrecked) return;
@@ -934,6 +983,21 @@ function updatePlayer(dt) {
 
 // ---------- camera, light, day cycle ----------
 function updateCamera(dt) {
+  // Title-screen panorama: while the poster is up, the camera
+  // drifts along the strand at rooftop height and looks west
+  // across the whole dusk town — the strand lamps below, the
+  // downtown towers, the market glow, the port cranes at the
+  // frame's edge. The sun rides with it so the long shadows rake
+  // the poster's town the same way they rake the game's.
+  if (S.mode === "menu") {
+    const t = performance.now() / 1000;
+    const cx = 352, cz = -40 + Math.sin(t * 0.045) * 95;
+    camera.position.lerp(new THREE.Vector3(cx, 27 + Math.sin(t * 0.1) * 2.5, cz), 1 - Math.pow(0.02, dt));
+    camera.lookAt(40, 2, -6);
+    sun.position.set(cx - 170, 52, cz - 80);
+    sun.target.position.set(40, 0, -6);
+    return;
+  }
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;
   if (!pointerLocked) camYaw = angleLerp(camYaw, heading + Math.PI + S.camOffset, dt * (S.inCar ? 2.2 : 1.4));
@@ -1019,6 +1083,8 @@ function hudState() {
     clock: S.clock, money: S.money, respect: S.respect, wanted: S.wanted, searching: S.searching,
     activity: activities.hudState(),
     heliActive, roadblockAhead: policeCars.some((c) => c.tactic === "ROADBLOCK"),
+    dispatchLine: S.dispatchLineT > 0 ? S.dispatchLine : "",
+    stage: !!STAGE,
     mission: mState, dispatch, weapons,
     crew: CREW.map((c, i) => ({ keyLabel: c.key.replace("Key", ""), ability: c.ability, name: c.name, role: c.role, ready: S.crewCd[i] <= 0, left: Math.max(0, S.crewCd[i]), cooldown: c.cooldown })),
     health: S.health, armor: S.armor,
@@ -1034,12 +1100,29 @@ function hudState() {
   };
 }
 
+// ---------- the town board's ledger ----------
+function mapStats() {
+  const fp = focusPos();
+  const hs = hudState();
+  return {
+    money: S.money, respect: S.respect, wanted: S.wanted,
+    jobsDone: Math.min(S.missionIndex, MISSIONS.length), jobsTotal: MISSIONS.length,
+    packages: activities.found, packagesTotal: activities.packages.length,
+    races: RACES.map((r) => ({ name: r.name, par: r.par, best: activities.best[r.name] != null ? activities.best[r.name] : null })),
+    stolen: S.stolen,
+    crew: CREW,
+    district: city.districtAt(fp.x, fp.z),
+    focus: hs.focus, mapTarget: hs.mapTarget, mapPolice: hs.mapPolice, mapHostiles: hs.mapHostiles,
+    mapPackages: activities.packages.filter((p) => !p.taken).map((p) => ({ x: p.x, z: p.z })),
+  };
+}
+
 // ---------- save / load ----------
 function saveGame() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       money: S.money, respect: S.respect, missionIndex: S.missionIndex,
-      ammo: S.ammo, unlocked: S.unlocked,
+      ammo: S.ammo, unlocked: S.unlocked, stolen: S.stolen,
       act: activities.saveData(),
     }));
   } catch (e) { /* private mode: the bay forgets, the game goes on */ }
@@ -1057,7 +1140,7 @@ function startGame(fromSave) {
   audio.unlock();
   if (fromSave) {
     const s = loadGame();
-    if (s) { S.money = s.money; S.respect = s.respect; S.missionIndex = s.missionIndex || 0; S.ammo = s.ammo; S.unlocked = s.unlocked; activities.restore(s.act); }
+    if (s) { S.money = s.money; S.respect = s.respect; S.missionIndex = s.missionIndex || 0; S.ammo = s.ammo; S.unlocked = s.unlocked; S.stolen = s.stolen || 0; activities.restore(s.act); }
   }
   document.getElementById("startScreen").style.display = "none";
   document.getElementById("hud").style.display = "block";
@@ -1195,8 +1278,9 @@ function frame(now) {
   requestAnimationFrame(frame);
   let dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
-  if (S.mode === "play" && !S.paused) {
+  if (S.mode === "play" && !S.paused && !S.mapOpen) {
     S.clock = (S.clock + dt * 24 / WORLD.dayLength) % 24;
+    if (S.dispatchLineT > 0) S.dispatchLineT -= dt;
     for (let i = 0; i < CREW.length; i++) S.crewCd[i] = Math.max(0, S.crewCd[i] - dt);
     S.platesTimer = Math.max(0, S.platesTimer - dt);
     S.eyesTimer = Math.max(0, S.eyesTimer - dt);
@@ -1290,6 +1374,11 @@ function frame(now) {
     audio.music(dt, true);
     audio.setEngine(!!S.inCar, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0, S.inCar ? Math.abs(S.inCar.speed) / S.inCar.model.top : 0);
   }
+  // The town board hangs over a held-still world: no simulation
+  // runs while it is open, but the board itself redraws (the gold
+  // objective ring breathes, the police dots blink).
+  if (S.mapOpen && S.mode === "play") hud.drawMap(mapStats());
+  if (S.mapOpen && S.mode !== "play") { S.mapOpen = false; document.getElementById("mapScreen").style.display = "none"; }
   updateCamera(dt);
   updateSky();
   renderer.render(scene, camera);
