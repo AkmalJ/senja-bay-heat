@@ -212,49 +212,62 @@ function personRng() {
   return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 }
 
-// -- Hand weapons (v5 detail pass) ----------------------------------
+// -- Hand weapons (v5 detail pass, contrast revision) ---------------
 // The old gun was a single small black box: at duel distances you
-// saw beams but no weapon. Each class now gets a real silhouette —
-// a dark receiver, steel that catches the senja light, one tan
-// furniture accent — long enough to read as a gun in profile at
-// 15 m and still register in a 380 px duel frame. Meshes only:
-// no stats, poses or firing logic live here. Class is picked from
-// the role the caller already declares (cop / hostile / other),
-// varied by the person's own rng.
+// saw beams but no weapon. The first v5 pass gave each class a
+// two-tone silhouette, but the owner still could not find the
+// guns in the proof frames: the pale tan furniture washed out
+// under the senja grade against the lit road pool, and the
+// profiles were too thin to name at 11–21 m. This revision is
+// contrast-first — near-black bodies so the SILHOUETTE carries
+// the read, one thin steel line along the barrel/slide as the
+// only accent, and thicker, longer profiles per class (pistol
+// chunky, SMG with a big magazine block, long gun unmistakably
+// long). Meshes only: no stats, poses or firing logic live
+// here. Class is picked from the role the caller already
+// declares (cop / hostile / other), varied by the person's rng.
 function buildGunMesh(opts, rnd) {
   const gun = new THREE.Group();
   gun.position.set(-0.42, 1.28, 0.02);
-  const body = lam(0x23262b), steel = lam(0x9fb0bc), tan = lam(0xb08954);
+  const body = lam(0x131418), steel = lam(0x93a3b1);
   const cls = opts.weapon
     ?? (opts.cop ? (rnd() < 0.35 ? "long" : "pistol")
       : opts.hostile ? (rnd() < 0.45 ? "smg" : rnd() < 0.62 ? "long" : "pistol")
       : "smg");
   if (cls === "pistol") {
-    cbox(0.075, 0.15, 0.4, body, 0, 0.02, 0.18, gun);        // frame + barrel
-    cbox(0.065, 0.055, 0.42, steel, 0, 0.115, 0.19, gun);   // slide
-    const grip = cbox(0.07, 0.24, 0.11, body, 0, -0.1, 0.0, gun);
+    cbox(0.11, 0.17, 0.52, body, 0, 0.03, 0.22, gun);        // frame + barrel
+    cbox(0.115, 0.035, 0.5, steel, 0, 0.125, 0.22, gun);    // slide line
+    const grip = cbox(0.105, 0.3, 0.14, body, 0, -0.13, 0.0, gun);
     grip.rotation.x = 0.28;
-    cbox(0.05, 0.05, 0.05, steel, 0, 0.16, 0.4, gun);        // front sight
+    cbox(0.05, 0.06, 0.05, body, 0, 0.17, 0.44, gun);        // front sight
   } else if (cls === "smg") {
-    cbox(0.09, 0.16, 0.55, body, 0, 0.03, 0.24, gun);       // receiver
-    cbox(0.06, 0.05, 0.3, steel, 0, 0.135, 0.3, gun);       // top rail
-    cbox(0.055, 0.06, 0.34, steel, 0, 0.05, 0.66, gun);     // barrel + shroud
-    const mag = cbox(0.07, 0.32, 0.11, tan, 0, -0.16, 0.28, gun);
-    mag.rotation.x = -0.16;
-    cbox(0.08, 0.13, 0.2, tan, 0, 0.01, -0.14, gun);        // stock
-    cbox(0.06, 0.16, 0.06, body, 0, -0.12, 0.52, gun);      // foregrip
+    cbox(0.13, 0.21, 0.62, body, 0, 0.04, 0.28, gun);       // receiver
+    cbox(0.09, 0.1, 0.42, body, 0, 0.06, 0.78, gun);        // barrel
+    cbox(0.095, 0.045, 0.4, steel, 0, 0.125, 0.78, gun);    // barrel line
+    const mag = cbox(0.1, 0.42, 0.14, body, 0, -0.22, 0.32, gun);
+    mag.rotation.x = -0.14;
+    cbox(0.11, 0.16, 0.26, body, 0, 0.02, -0.18, gun);      // stock
+    cbox(0.09, 0.2, 0.08, body, 0, -0.14, 0.62, gun);       // foregrip
+    const grip = cbox(0.09, 0.2, 0.1, body, 0, -0.13, 0.02, gun);
+    grip.rotation.x = 0.2;
   } else {
-    // Long gun (the 12G Laras pattern): tan furniture, a long
-    // steel barrel, the bead sight at the muzzle.
-    cbox(0.09, 0.17, 0.58, body, 0, 0.03, 0.2, gun);        // receiver
-    cbox(0.055, 0.055, 0.55, steel, 0, 0.075, 0.72, gun);   // barrel
-    cbox(0.105, 0.12, 0.3, tan, 0, -0.03, 0.62, gun);       // fore-end / pump
-    const stock = cbox(0.08, 0.2, 0.34, tan, 0, -0.03, -0.2, gun);
+    // Long gun (the 12G Laras pattern): black furniture, one
+    // long barrel with a steel line, the bead at the muzzle.
+    cbox(0.12, 0.2, 0.6, body, 0, 0.04, 0.24, gun);         // receiver
+    cbox(0.08, 0.09, 0.72, body, 0, 0.08, 0.9, gun);        // barrel
+    cbox(0.085, 0.04, 0.7, steel, 0, 0.14, 0.9, gun);       // barrel line
+    cbox(0.14, 0.15, 0.34, body, 0, -0.02, 0.72, gun);      // fore-end / pump
+    const stock = cbox(0.11, 0.24, 0.4, body, 0, -0.04, -0.24, gun);
     stock.rotation.x = -0.1;
-    cbox(0.045, 0.07, 0.045, steel, 0, 0.16, 0.94, gun);    // bead sight
-    const tube = cbox(0.07, 0.2, 0.1, body, 0, -0.14, 0.26, gun);
-    tube.rotation.x = -0.1;
+    cbox(0.05, 0.08, 0.05, steel, 0, 0.19, 1.22, gun);      // bead sight
+    const grip = cbox(0.09, 0.22, 0.12, body, 0, -0.16, 0.28, gun);
+    grip.rotation.x = -0.1;
   }
+  // Crop-test iteration: at duel distance the SMG/long profiles
+  // still shrank to a wedge at the beam's origin, so the two long
+  // classes get one more presence step (the pistol stays true to
+  // size — it reads at the ranges pistols are seen).
+  if (cls !== "pistol") gun.scale.setScalar(1.3);
   return gun;
 }
 
