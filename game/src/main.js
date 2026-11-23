@@ -155,19 +155,25 @@ for (const [x, z, m, h] of parkedSpots) spawnCar(m, x, z, h, "parked", m === 2 ?
 // avenue wear rows of parked cars, scooters tucked between them, so the
 // streets read lived-in from any camera. (Model indices: 6 = scooter,
 // 7 = box truck — appended last in CAR_MODELS so the old indices hold.)
+// Every bay car faces the way its lane flows — traffic on the
+// boulevard's east lane runs south (heading 0), the west lane north
+// (heading PI); on an east-west road the south lane runs east
+// (heading PI/2), the north lane west (-PI/2). The rows used to face
+// against the flow, and the owner's title eye caught the two biggest
+// foreground offenders sitting nose-against-traffic at the kerb.
 const bayModels = [0, 1, 3, 4, 5, 0, 4, 1];
 let bayK = 0;
 for (let z = -258, i = 0; z <= 258; z += 30, i++) {
   const nearJunction = Math.abs(z % 95) < 15 || Math.abs(z % 95) > 80;
   if (nearJunction) continue;   // keep junction mouths clear
-  spawnCar(bayModels[bayK++ % bayModels.length], 276, z, 0, "parked");
-  if (i % 2 === 0) spawnCar(bayModels[bayK++ % bayModels.length], 294, z + 8, Math.PI, "parked");
-  else spawnCar(6, 294, z + 8, Math.PI, "parked");
+  spawnCar(bayModels[bayK++ % bayModels.length], 276, z, Math.PI, "parked");
+  if (i % 2 === 0) spawnCar(bayModels[bayK++ % bayModels.length], 294, z + 8, 0, "parked");
+  else spawnCar(6, 294, z + 8, 0, "parked");
 }
 for (let x = -240; x <= 240; x += 30) {
   if (Math.abs(x) < 30 || Math.abs(x - 95) < 15 || Math.abs(x + 95) < 15 || Math.abs(x - 190) < 15 || Math.abs(x + 190) < 15) continue;
-  spawnCar(bayModels[bayK++ % bayModels.length], x, -9.5, Math.PI / 2, "parked");
-  if (x % 60 === 0) spawnCar(bayModels[bayK++ % bayModels.length], x + 14, 9.5, -Math.PI / 2, "parked");
+  spawnCar(bayModels[bayK++ % bayModels.length], x, -9.5, -Math.PI / 2, "parked");
+  if (x % 60 === 0) spawnCar(bayModels[bayK++ % bayModels.length], x + 14, 9.5, Math.PI / 2, "parked");
 }
 // Working vehicles where they belong: box trucks on the port apron,
 // scooters by the market and the hills.
@@ -1176,37 +1182,106 @@ function restoreMenuVista() {
 // the strip tolerance) is hidden; the moment it is back on
 // asphalt — or play starts — it is visible again. The traffic
 // simulation itself is untouched: cars keep driving their
-// routes under the menu, hidden only while off the road.
+// routes under the menu, hidden only while off the road. The
+// same hiding now also covers a vehicle that sits on asphalt
+// facing against its lane's flow (menuTrafficAligned below):
+// parked offenders vanish at once, rolling traffic only after
+// the failure outlasts a junction turn's grace.
 let menuTrafficOn = false;
 const menuTrafficHidden = new Set();
+const menuTrafficFailSince = new Map();   // traffic car -> when its current failure began (seconds)
 const MENU_TRAFFIC_BOX = { x0: 140, x1: 520, z0: -280, z1: 380 };
+const MENU_TRAFFIC_TURN_GRACE = 1.5;      // a turning car is briefly off-flow; only a settled failure hides
 function menuTrafficOnRoad(x, z) {
   const half = WORLD.roadHalf + 1;
   if (Math.abs(x - nearestRoadCoord(x)) <= half) return true;            // a north-south strip
   if (Math.abs(z - nearestRoadCoord(z)) <= half && x <= 297) return true; // an east-west strip (they end at the boulevard)
   return false;
 }
+// The facing test (the owner's second title marking: a vehicle in
+// the poster must sit on the asphalt AND face the traffic). A car
+// on a strip must face the way its lane flows — east side of a
+// north-south road heads 0, west side PI; south side of an
+// east-west road heads PI/2, north side -PI/2, the convention the
+// kerbside bays now follow. A car straddling a centreline may
+// face either way along its road; at a junction either road's
+// flow counts. 0.7 rad of slack covers lane wobble.
+function menuTrafficAligned(car) {
+  const p = car.pos, half = WORLD.roadHalf + 1;
+  const h = Math.atan2(Math.sin(car.heading), Math.cos(car.heading));
+  const near = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) <= 0.7;
+  let on = false;
+  const lx = nearestRoadCoord(p.x);
+  if (Math.abs(p.x - lx) <= half) {
+    on = true;
+    const off = p.x - lx;
+    if (off > 1 ? near(h, 0) : off < -1 ? near(h, Math.PI) : (near(h, 0) || near(h, Math.PI))) return true;
+  }
+  const lz = nearestRoadCoord(p.z);
+  if (Math.abs(p.z - lz) <= half && p.x <= 297) {
+    on = true;
+    const off = p.z - lz;
+    if (off > 1 ? near(h, Math.PI / 2) : off < -1 ? near(h, -Math.PI / 2) : (near(h, Math.PI / 2) || near(h, -Math.PI / 2))) return true;
+  }
+  return !on;   // not on any strip: the road test owns this car
+}
 function applyMenuTraffic() {
   menuTrafficOn = true;
-  // Re-show anything the treatment hid that has since left the
-  // box or found its way back onto asphalt.
-  for (const car of [...menuTrafficHidden]) {
-    const p = car.pos;
-    const inBox = p.x >= MENU_TRAFFIC_BOX.x0 && p.x <= MENU_TRAFFIC_BOX.x1 && p.z >= MENU_TRAFFIC_BOX.z0 && p.z <= MENU_TRAFFIC_BOX.z1;
-    if (!inBox || menuTrafficOnRoad(p.x, p.z)) { car.mesh.visible = true; menuTrafficHidden.delete(car); }
-  }
+  const now = performance.now() / 1000;
+  const inBox = (p) => p.x >= MENU_TRAFFIC_BOX.x0 && p.x <= MENU_TRAFFIC_BOX.x1 && p.z >= MENU_TRAFFIC_BOX.z0 && p.z <= MENU_TRAFFIC_BOX.z1;
   for (const car of cars) {
     if (car.kind !== "traffic" && car.kind !== "parked") continue;
     const p = car.pos;
-    if (p.x < MENU_TRAFFIC_BOX.x0 || p.x > MENU_TRAFFIC_BOX.x1 || p.z < MENU_TRAFFIC_BOX.z0 || p.z > MENU_TRAFFIC_BOX.z1) continue;
-    if (!menuTrafficOnRoad(p.x, p.z) && car.mesh.visible) { car.mesh.visible = false; menuTrafficHidden.add(car); }
+    const bad = inBox(p) && (!menuTrafficOnRoad(p.x, p.z) || !menuTrafficAligned(car));
+    if (!bad) {
+      menuTrafficFailSince.delete(car);
+      if (menuTrafficHidden.has(car)) { car.mesh.visible = true; menuTrafficHidden.delete(car); }
+      continue;
+    }
+    // Parked cars never turn: a failure is settled, hide at once.
+    // Rolling traffic gets the grace — a junction turn swings the
+    // heading through the failing arc for well under it, so a car
+    // only disappears once it is genuinely settled against the
+    // flow or off the road for good.
+    if (car.kind === "traffic") {
+      if (!menuTrafficFailSince.has(car)) menuTrafficFailSince.set(car, now);
+      if (now - menuTrafficFailSince.get(car) < MENU_TRAFFIC_TURN_GRACE) continue;
+    }
+    if (car.mesh.visible) { car.mesh.visible = false; menuTrafficHidden.add(car); }
   }
 }
 function restoreMenuTraffic() {
   if (!menuTrafficOn) return;
   for (const car of menuTrafficHidden) car.mesh.visible = true;
   menuTrafficHidden.clear();
+  menuTrafficFailSince.clear();
   menuTrafficOn = false;
+}
+
+// ---------- title-screen beach-shadow treatment ----------
+// One more menu-only touch, same contract. The poster's beach is
+// a single sand plane (city.js buildStrand, 0xf2cb6e), but the
+// olive patch the owner marked on it is real: the menu's low
+// western sun throws the boulevard column's buildings across the
+// sand — a probe named the casters building by building (the
+// (237.5, 142.5) foreground block and the (237.5, 47.5)
+// strand-park fill). While the menu is up those buildings simply
+// do not cast, and the beach reads as the one sheet of yellow
+// the owner asked for; the moment play starts every shadow
+// returns, untouched.
+let menuBeachOn = false, menuBeachCasters = null;
+function applyMenuBeach() {
+  if (menuBeachOn) return;
+  if (!menuBeachCasters) {
+    menuBeachCasters = city.buildings.filter((b) => b.position.x >= 190 && b.position.x <= 285 && b.position.z >= -95 && b.position.z <= 190);
+  }
+  for (const b of menuBeachCasters) b.castShadow = false;
+  menuBeachOn = true;
+}
+function restoreMenuBeach() {
+  if (!menuBeachOn) return;
+  for (const b of menuBeachCasters) b.castShadow = true;
+  menuBeachOn = false;
 }
 
 // ---------- title-screen setting sun ----------
@@ -1322,6 +1397,7 @@ function updateCamera(dt) {
     applyMenuVista();
     applyMenuSun();
     applyMenuTraffic();
+    applyMenuBeach();
     if (!menuGradeOn) { renderer.toneMappingExposure = 1.36; menuGradeOn = true; }
     return;
   }
@@ -1329,6 +1405,7 @@ function updateCamera(dt) {
   restoreMenuVista();
   restoreMenuSun();
   restoreMenuTraffic();
+  restoreMenuBeach();
   if (menuGradeOn) { renderer.toneMappingExposure = 1.12; menuGradeOn = false; }
   const fp = focusPos();
   const heading = S.inCar ? S.inCar.heading : player.heading;

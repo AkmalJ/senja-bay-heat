@@ -1141,15 +1141,30 @@ export class City {
 
   buildPort(rnd) {
     // Cranes, containers and a freighter silhouette at Pelabuhan.
+    // The owner's title marking: two of the yard's random spots land
+    // on the z=190 shore road in the menu vista's foreground, hanging
+    // over the asphalt the poster should show. Any container whose
+    // spot falls in that foreground box moves to the open apron
+    // ground the owner marked instead — the slab south of the road,
+    // east of the yard — grounded like proper yard cargo and clear
+    // of every road strip (the shore road, the boulevard, the z=285
+    // road all stay visible and drivable). No rnd is consumed by the
+    // move: the yard's layout stream is unchanged.
     const contCols = [0xc0392b, 0x2471a3, 0x229954, 0xca6f1e, 0x707b7c, 0x7d3c98, 0x148f77, 0xb03a5b];
+    const APRON_SLOTS = [[233, 224], [253, 246]];
+    let apronUsed = 0;
     for (let i = 0; i < 22; i++) {
-      const cx = 130 + rnd() * 150, cz = 185 + rnd() * 110;
+      let cx = 130 + rnd() * 150, cz = 185 + rnd() * 110;
+      let grounded = false;
+      if (cx >= 222 && cx <= 252 && cz >= 180 && cz <= 212 && apronUsed < APRON_SLOTS.length) {
+        [cx, cz] = APRON_SLOTS[apronUsed++]; grounded = true;
+      }
       const cont = new THREE.Mesh(new THREE.BoxGeometry(12, 4.5, 5),
         containerMaterials(contCols[i % 8], i % 3));
-      cont.position.set(cx, 2.25 + (i % 3 === 0 ? 4.5 : 0), cz);
+      cont.position.set(cx, 2.25 + (!grounded && i % 3 === 0 ? 4.5 : 0), cz);
       cont.rotation.y = (rnd() - 0.5) * 0.4; cont.castShadow = true;
       this.scene.add(cont);
-      if (i % 3 !== 0) this.addCollider(cx, cz, 6, 2.6);
+      if (i % 3 !== 0 || grounded) this.addCollider(cx, cz, 6, 2.6);
     }
     for (const [lx, lz] of [[180, 215], [235, 255]]) {
       const pl = new THREE.PointLight(0xaee6ff, 0, 90, 1.4);
