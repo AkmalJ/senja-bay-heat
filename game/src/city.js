@@ -422,7 +422,9 @@ export class City {
     // Pasar Malam (v5): a real night-market floor plan — three
     // aisles, each a lane between two facing rows of stalls, a
     // single backdrop row across the south service lane, and a
-    // crossroads cut through every row at x ≈ −210. A stall is a
+    // crossroads cut through every row at x ≈ −210. Aisle 2's
+    // north row carries a second, wider opening — the duel
+    // pocket behind the market fight (see the rows loop). A stall is a
     // wooden counter under a sloped terpal canopy on two posts, a
     // painted name board on its front, goods heaped on the counter
     // and a warm lamp hanging at its front corner. The old open
@@ -611,7 +613,52 @@ export class City {
       for (let k = 0; k < 11; k++) {
         const x = -268 + k * 11.5;
         if (Math.abs(x + 210.5) < 6.5) continue;   // the crossroads
+        // THE DUEL POCKET (owner-approved, v5 character round):
+        // aisle 2's north row opens a crossroads gap behind the
+        // stretch the market fight is staged on (k = 2, 3 — the
+        // two stalls whose fronts the gang stood against, wall
+        // at their backs). The row continues on both sides; the
+        // opening is dressed below as a pasar crossroads, not
+        // left as a hole. n still advances for the two unbuilt
+        // stalls, so every other stall in the market keeps the
+        // name, pattern and seller it has always had.
+        if (rz === 104.4 && (k === 2 || k === 3)) { n++; continue; }
         stall(x, rz, ry);
+      }
+    }
+    // Dressing the pocket: stock piles at its back corners, a
+    // lamp standing at each corner, and the LAUT SEGAR board —
+    // the removed k = 3 stall's own sign — hung across the back
+    // of the opening on two poles, so the name the fight has
+    // always played under stays over it. The string lights
+    // along the aisle's edge (in the dressing) run unbroken
+    // across the mouth.
+    {
+      const corner = (cx) => {
+        const cr = new THREE.Mesh(new THREE.BoxGeometry(1.05, 1.05, 1.05), crateMatS);
+        cr.position.set(cx, 0.62, 103.1); cr.rotation.y = 0.3; cr.castShadow = true; this.scene.add(cr);
+        const cr2 = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.72, 1.05), crateMatS);
+        cr2.position.set(cx + 0.25, 1.5, 103.0); cr2.rotation.y = -0.15; cr2.castShadow = true; this.scene.add(cr2);
+        const sk = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 6), sackMatS);
+        sk.scale.y = 0.72; sk.position.set(cx - 1.15, 0.5, 103.3); sk.castShadow = true; this.scene.add(sk);
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.13, 6, 6), bulbMat);
+        bulb.position.set(cx + 1.3, 2.9, 103.4); this.scene.add(bulb);
+        const halo = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), bulbHaloMat);
+        halo.position.copy(bulb.position); this.scene.add(halo);
+        const pool = new THREE.Mesh(poolGeo, poolMat);
+        pool.rotation.x = -Math.PI / 2; pool.position.set(cx + 1.3, 0.14, 103.4); this.scene.add(pool);
+      };
+      corner(-248.5); corner(-229.5);
+      for (const px of [-235.5, -227.5]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.2, 6), postMat);
+        post.position.set(px, 1.6, 102.6); this.scene.add(post);
+      }
+      const pSign = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 0.85),
+        new THREE.MeshBasicMaterial({ map: signTexture("LAUT SEGAR", "", "#2a1f3d", "#ffd98a"), side: THREE.DoubleSide }));
+      pSign.position.set(-231.5, 2.55, 102.6); this.scene.add(pSign);
+      for (const sx of [-233.8, -229.2]) {
+        const str = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.5, 0.03), stringMatS);
+        str.position.set(sx, 2.95, 102.6); this.scene.add(str);
       }
     }
     // Warm work lights standing over the aisles.

@@ -167,49 +167,166 @@ export function buildCarMesh(model, opts = {}) {
   return g;
 }
 
-const SKIN = [0xf2c79b, 0xc68863, 0x8d5524, 0xffdbac];
+// ---- person detail system (v5 character pass) ----
+// The owner's verdict on the old crowd: "too plain" — flat
+// single-colour blocks, bare heads, nobody distinguishable from
+// anybody. Every body now gets a per-person detail stream from
+// a seeded RNG: skin tone, hair or headwear, a two-tone outfit
+// (an open jacket layer or contrast sleeves on some), long
+// trousers or shorts, a belt, shoes, sometimes a wristwatch or
+// the shoulder bag. Fixed identities ride on top: the Kerang
+// Boys all wear the SAME yellow bandana over the gang purple,
+// the SBPD wear a navy police cap, and Raka's look is passed
+// in whole by his caller and never randomises. Detail parts
+// share one cached geometry/material per part across all 45+
+// bodies, so the detail costs no extra programs and few meshes.
+const SKIN = [0xffdbac, 0xf2c79b, 0xe0ac69, 0xc68863, 0xa06a38, 0x8d5524, 0x6f4420];
 const SHIRTS = [0xe63946, 0x2a9d8f, 0xf4a261, 0x457b9d, 0xe9c46a, 0x9b5de5, 0xf1fa8c, 0xffffff, 0x06d6a0, 0xef476f];
+const PANTS_COLS = [0x2b2d42, 0x1f2733, 0x34558b, 0x4a4238, 0x9a8a68, 0x5b6770, 0x71563f, 0x3a3f4a];
+const JACKET_COLS = [0x37474f, 0x5d4037, 0x274156, 0x6b2737, 0x2e4a34, 0x71563f, 0x22262b];
+const HAIR_COLS = [0x17120e, 0x2a1a10, 0x453016, 0x6e4f26, 0x8a8d90, 0xb8b0a4];
+const CAP_COLS = [0xe63946, 0x14202e, 0xf4f1e6, 0x2a9d8f, 0xe9c46a, 0x243447];
+const BANDANA_COLS = [0xb03a2e, 0x2a6f6f, 0xe8e3d8, 0x51648a];
+const GANG_BANDANA = 0xffd21f;   // Kerang Boys signature — every hostile, every mission
+
+const _geoCache = new Map();
+function cgeo(w, h, d) {
+  const k = w + "x" + h + "x" + d;
+  let geo = _geoCache.get(k);
+  if (!geo) { geo = new THREE.BoxGeometry(w, h, d); _geoCache.set(k, geo); }
+  return geo;
+}
+const _matCache = new Map();
+function lam(color) {
+  let m = _matCache.get(color);
+  if (!m) { m = new THREE.MeshLambertMaterial({ color }); _matCache.set(color, m); }
+  return m;
+}
+function cbox(w, h, d, mat, x, y, z, parent) {
+  const m = new THREE.Mesh(cgeo(w, h, d), mat);
+  m.position.set(x, y, z); m.castShadow = true;
+  parent.add(m); return m;
+}
+function personRng() {
+  let s = ((Math.random() * 0xffffffff) >>> 0) || 1;
+  return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+}
 
 export function buildPersonMesh(opts = {}) {
   const g = new THREE.Group();
-  const skin = new THREE.MeshLambertMaterial({ color: opts.skin ?? SKIN[(Math.random() * SKIN.length) | 0] });
-  const shirt = new THREE.MeshLambertMaterial({ color: opts.shirt ?? SHIRTS[(Math.random() * SHIRTS.length) | 0] });
-  const pants = new THREE.MeshLambertMaterial({ color: opts.pants ?? 0x2b2d42 });
+  const rnd = personRng();
+  const pick = (arr) => arr[(rnd() * arr.length) | 0];
+  const isCop = !!opts.cop, isGang = !!opts.hostile;
+  const skin = lam(opts.skin ?? pick(SKIN));
+  const shirt = lam(opts.shirt ?? pick(SHIRTS));
+  const pants = lam(opts.pants ?? (isGang ? 0x23232c : isCop ? 0x16233d : pick(PANTS_COLS)));
   // The model faces +Z: shoulders and hips spread along X, the gun arm
   // reaches forward along +Z, and limb swings rotate around the X axis.
-  const torso = box(0.62, 0.78, 0.34, shirt, 0, 1.12, 0, g);
-  box(0.4, 0.42, 0.4, skin, 0, 1.74, 0, g);                       // head
-  // Headwear: an explicit cap or hat wins; otherwise part of the crowd
-  // picks one up on its own — never the vested crews or the SBPD.
-  let cap = opts.cap, hat = opts.hat;
-  if (!cap && !hat && !opts.cop && !opts.vest && Math.random() < 0.34) {
-    if (Math.random() < 0.45) hat = SHIRTS[(Math.random() * SHIRTS.length) | 0];
-    else cap = SHIRTS[(Math.random() * SHIRTS.length) | 0];
+  const torso = cbox(0.62, 0.78, 0.34, shirt, 0, 1.12, 0, g);
+  // Two-tone layer: an open jacket/overshirt — side panels and a
+  // back panel over the shirt, the shirt still showing at the
+  // chest, the sleeves in the jacket's colour. Raka's is passed
+  // in (opts.jacket); part of the crowd rolls its own. Without a
+  // jacket, some civilians get contrast (raglan) sleeves instead.
+  let armMat = shirt;
+  let jacket = null;
+  if (opts.jacket) jacket = lam(opts.jacket);
+  else if (!isCop && !isGang && !opts.vest && rnd() < 0.38) jacket = lam(pick(JACKET_COLS));
+  if (jacket) {
+    cbox(0.17, 0.7, 0.36, jacket, 0.245, 1.14, 0, g);
+    cbox(0.17, 0.7, 0.36, jacket, -0.245, 1.14, 0, g);
+    cbox(0.64, 0.7, 0.07, jacket, 0, 1.14, -0.155, g);
+    armMat = jacket;
+  } else if (opts.sleeves) armMat = lam(opts.sleeves);
+  else if (!isCop && !isGang && rnd() < 0.3) armMat = lam(pick(PANTS_COLS));
+  // Head, with a face hint: two dark eyes on the +Z face — just
+  // enough to give the head a front at this poly scale.
+  cbox(0.4, 0.42, 0.4, skin, 0, 1.74, 0, g);
+  const eyeL = cbox(0.055, 0.07, 0.02, lam(0x17110c), 0.09, 1.79, 0.2, g); eyeL.castShadow = false;
+  const eyeR = cbox(0.055, 0.07, 0.02, lam(0x17110c), -0.09, 1.79, 0.2, g); eyeR.castShadow = false;
+  // Headwear and hair. Gang and police identities are FIXED and
+  // win over everything; an explicit cap/hat/bandana from the
+  // caller comes next; the rest of the crowd rolls its own —
+  // hair crop, cap forwards or backwards, a muted bandana, or
+  // a bare head.
+  const wearHair = () => {
+    const hm = lam(pick(HAIR_COLS));
+    cbox(0.44, 0.13, 0.44, hm, 0, 1.965, 0, g);
+    cbox(0.44, 0.32, 0.09, hm, 0, 1.81, -0.175, g);
+  };
+  const wearCap = (color, back) => {
+    const cm = lam(color);
+    cbox(0.47, 0.13, 0.47, cm, 0, 1.99, 0, g);
+    cbox(0.4, 0.05, 0.3, cm, 0, 1.94, back ? -0.34 : 0.34, g);
+  };
+  const wearBandana = (color) => {
+    const bm = lam(color);
+    cbox(0.46, 0.2, 0.46, bm, 0, 1.9, 0, g);
+    cbox(0.42, 0.09, 0.42, bm, 0, 2.02, 0, g);
+    const tail = cbox(0.15, 0.26, 0.05, bm, 0.1, 1.76, -0.24, g);
+    tail.rotation.x = 0.15;
+  };
+  if (isGang) wearBandana(GANG_BANDANA);
+  else if (isCop) {
+    const cm = lam(0x14264a);
+    cbox(0.47, 0.14, 0.47, cm, 0, 1.99, 0, g);
+    cbox(0.48, 0.06, 0.48, lam(0x2c4a7c), 0, 1.93, 0, g);
+    cbox(0.4, 0.05, 0.3, cm, 0, 1.94, 0.34, g);
+    const badge = cbox(0.07, 0.07, 0.02, lam(0xd7dde3), 0, 2.0, 0.24, g); badge.castShadow = false;
   }
-  if (cap) box(0.46, 0.1, 0.46, new THREE.MeshLambertMaterial({ color: cap }), 0, 1.97, 0, g);
-  if (hat) {
-    const hatMat = new THREE.MeshLambertMaterial({ color: hat });
-    box(0.6, 0.07, 0.6, hatMat, 0, 1.95, 0, g);
-    box(0.36, 0.2, 0.36, hatMat, 0, 2.06, 0, g);
+  else if (opts.bandana) wearBandana(opts.bandana);
+  else if (opts.cap) wearCap(opts.cap, opts.capBack);
+  else if (opts.hat) {
+    const hm = lam(opts.hat);
+    cbox(0.6, 0.07, 0.6, hm, 0, 1.95, 0, g);
+    cbox(0.36, 0.2, 0.36, hm, 0, 2.06, 0, g);
+  } else {
+    const r = rnd();
+    if (r < 0.42) wearHair();
+    else if (r < 0.62) wearCap(pick(CAP_COLS), false);
+    else if (r < 0.7) wearCap(pick(CAP_COLS), true);
+    else if (r < 0.8) wearBandana(pick(BANDANA_COLS));
+    // else: bare head
   }
-  const armL = box(0.16, 0.66, 0.16, shirt, 0.42, 1.14, 0, g);
-  const armR = box(0.16, 0.66, 0.16, shirt, -0.42, 1.14, 0, g);
+  const armL = box(0.16, 0.66, 0.16, armMat, 0.42, 1.14, 0, g);
+  const armR = box(0.16, 0.66, 0.16, armMat, -0.42, 1.14, 0, g);
   armL.geometry.translate(0, -0.26, 0); armR.geometry = armL.geometry;
-  const legL = box(0.2, 0.74, 0.2, pants, 0.16, 0.37, 0, g);
-  const legR = box(0.2, 0.74, 0.2, pants, -0.16, 0.37, 0, g);
-  legL.geometry.translate(0, -0.3, 0); legR.geometry = legL.geometry;
+  // A wristwatch on some wrists — a child of the arm, so it
+  // rides the swing.
+  if (!isCop && rnd() < 0.35) cbox(0.2, 0.09, 0.2, lam(0x1c1c22), 0, -0.52, 0, armL);
+  // Legs: long trousers, or shorts over a bare shin for part of
+  // the crowd; a dark shoe finishes either at the ankle.
+  const shorts = !isCop && !isGang && rnd() < 0.26;
+  const makeLeg = (x) => {
+    let leg;
+    if (shorts) {
+      leg = box(0.2, 0.44, 0.2, pants, x, 0.55, 0, g);
+      leg.geometry.translate(0, -0.19, 0);
+      cbox(0.17, 0.3, 0.17, skin, 0, -0.55, 0, leg);
+    } else {
+      leg = box(0.2, 0.74, 0.2, pants, x, 0.37, 0, g);
+      leg.geometry.translate(0, -0.3, 0);
+    }
+    cbox(0.22, 0.09, 0.34, lam(0x23211e), 0, -0.675, 0.05, leg);
+    leg.position.y = 0.72;
+    return leg;
+  };
+  const legL = makeLeg(0.16);
+  const legR = makeLeg(-0.16);
+  // A belt line at the waist on long trousers.
+  if (!shorts) cbox(0.64, 0.09, 0.36, lam(0x2a2019), 0, 0.755, 0, g);
   // Pivot-corrected limbs: move groups so rotation swings from the shoulder/hip.
-  armL.position.y = 1.42; armR.position.y = 1.42; legL.position.y = 0.72; legR.position.y = 0.72;
+  armL.position.y = 1.42; armR.position.y = 1.42;
   g.userData.limbs = { armL, armR, legL, legR, torso };
   // A shoulder bag on part of the crowd, strap worn across the chest.
   let bag = opts.bag;
-  if (bag === undefined && !opts.cop && !opts.vest && Math.random() < 0.3) {
-    bag = SHIRTS[(Math.random() * SHIRTS.length) | 0];
+  if (bag === undefined && !opts.cop && !opts.vest && rnd() < 0.3) {
+    bag = pick(SHIRTS);
   }
   if (bag) {
-    const bagMat = new THREE.MeshLambertMaterial({ color: bag });
-    box(0.36, 0.42, 0.16, bagMat, 0.46, 0.98, 0.04, g);
-    const strap = box(0.09, 0.78, 0.37, bagMat, 0, 1.28, 0, g);
+    const bagMat = lam(bag);
+    cbox(0.36, 0.42, 0.16, bagMat, 0.46, 0.98, 0.04, g);
+    const strap = cbox(0.09, 0.78, 0.37, bagMat, 0, 1.28, 0, g);
     strap.rotation.z = 0.55;
   }
   if (opts.gun) {
@@ -235,9 +352,9 @@ export function buildPersonMesh(opts = {}) {
     g.add(tri);
     g.userData.marker = tri;
   }
-  if (opts.vest) box(0.66, 0.5, 0.38, new THREE.MeshLambertMaterial({ color: 0x243447 }), 0, 1.18, 0, g);
+  if (opts.vest) cbox(0.66, 0.5, 0.38, lam(0x243447), 0, 1.18, 0, g);
   // Slight height variety across the crowd.
-  g.scale.y = opts.height ?? (0.93 + Math.random() * 0.13);
+  g.scale.y = opts.height ?? (0.93 + rnd() * 0.13);
   return g;
 }
 

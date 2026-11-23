@@ -81,7 +81,12 @@ const S = {
 // never wears the crowd's random shoulder bag: its pale strap lay
 // diagonally across his back in the staged frames and read as
 // anything but a gunman, so his build opts out of it for good.
-const playerMesh = buildPersonMesh({ shirt: 0xd8493b, pants: 0x22304a, cap: 0x14202e, gun: true, bag: false });
+// Raka's signature look (v5 character pass) — FIXED, never
+// randomised: a deep-teal jacket over an off-white tee, dark
+// trousers and a dark cap, so the hero reads as the same man
+// from behind, from the side and in every screenshot. His old
+// flat red-orange shirt washed out against the senja market.
+const playerMesh = buildPersonMesh({ shirt: 0xf3eee3, jacket: 0x0d5c63, pants: 0x1f2733, skin: 0xc68863, cap: 0x14202e, height: 1.0, gun: true, bag: false });
 playerMesh.position.set(262, 0, -60);
 scene.add(playerMesh);
 const player = { mesh: playerMesh, heading: 2.6, phase: 0, pos: playerMesh.position };

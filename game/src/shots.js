@@ -60,8 +60,12 @@ export function stageScene(name, api) {
       //     panels — which is why his fire never read).
       //   * RAKA FIGHTS FROM THE LANE'S SOUTH HALF (z = 110.2)
       //     so the whole gang can stand NORTH of his ray, in
-      //     the open lane, with the north stall fronts as a
-      //     distant backdrop instead of a wall at their backs.
+      //     the open lane. Behind them the north row now opens
+      //     into the DUEL POCKET (city.js): two stalls removed
+      //     behind the fight stretch, the row continuing on
+      //     both sides — open lit space at the gang's backs
+      //     instead of a stall wall, the pocket's LAUT SEGAR
+      //     board hung across its back.
       //   * THE LATERAL LINE stays: Raka fires due EAST
       //     (camOffset 0 while the trigger is held), the beam
       //     travels horizontally, and after the freeze the
@@ -71,16 +75,16 @@ export function stageScene(name, api) {
       //     measure each stop in pixels and the largest swing
       //     that keeps every enemy under 65% wins.
       //   * ONE MAN DOWN, ISOLATED (the Karimbu lesson): the
-      //     near man stands on the ray 4.3 m out, 0.4 m north
+      //     near man stands on the ray 4.1 m out, a step north
       //     of its line; his body settles toward Raka along
-      //     ~1.9 m of lane and comes to rest with NOTHING
-      //     within ~1.5 m of it — the primary's feet are 1.6 m
-      //     past his head, the fronts are ~2.8 m away, the
-      //     crowd pairs are metres off — a body alone in a lit
-      //     patch of open floor under the beam, not a shape
-      //     lost under legs or stall clutter. He wears the
-      //     gang purple without the vest: face-up, the bare
-      //     shirt is what keeps a body readable.
+      //     ~1.9 m of lane and comes to rest at the pocket's
+      //     mouth with NOTHING within ~1.5 m of it — the
+      //     primary's feet metres past his head, the crowd
+      //     pairs far off at the pocket's corners — a body
+      //     alone in a lit patch of open floor under the beam,
+      //     not a shape lost under legs or stall clutter. He
+      //     wears the gang purple without the vest: face-up,
+      //     the bare shirt is what keeps a body readable.
       //   * RETURN FIRE IS CARRIED BY THE ORBS (the PCPD
       //     lesson): three guns fire back in the reference
       //     frames and what reads is a big glowing orb at each
@@ -127,25 +131,30 @@ export function stageScene(name, api) {
       api.startJobAt(1, 1);                    // clear-the-aisles stage (spawns hostiles)
       api.placeOnFoot(-241.5, 110.2, Math.PI / 2); // aisle 2's south half, firing due east along z = 110.2
       api.setCamOffset(0);
-      // The fight, relative to Raka at (−241.5, 110.2):
-      //   near man (+4.3, +0.1) at (−237.2, 110.3) — the kill;
+      // The fight, relative to Raka at (−241.5, 110.2) —
+      // the pocket round: the standing men spend the space
+      // the crossroads gap freed, spread wider across its
+      // frontage and a step deeper into its mouth:
+      //   near man (+4.1, −0.3) at (−237.4, 109.9) — the kill;
       //     his body settles west along the lane into its own
-      //     empty patch under the beam (a hair south of the
-      //     ray line, so the north-mid's legs stay off it from
-      //     the swung camera).
-      //   primary (+5.9, −0.8) at (−235.6, 109.4) — the
+      //     empty patch at the pocket's mouth under the beam.
+      //   primary (+7.6, −0.7) at (−233.9, 109.5) — the
       //     standing target Raka's frozen burst lands on, a
-      //     cued return-firer; 0.8 m north of the ray line is
+      //     cued return-firer; 0.7 m north of the ray line is
       //     inside the ray test's 0.9 pick tolerance, so
       //     Raka's fire still walks near man → primary.
-      //   north firer (+5.7, −2.7) at (−235.8, 107.5) —
-      //     the diagonal return-firer; 2.7 m off the ray, so
-      //     Raka's fire never picks him; his own beam crosses
-      //     the lane at ~28°.
-      //   north-mid (+7.9, −2.7) at (−233.6, 107.5) — the
+      //     (Moved east in the cast45 pass: the corpse now
+      //     owns the pocket's western mouth alone, ~5.4 m
+      //     clear of him.)
+      //   north firer (+6.7, −3.6) at (−234.8, 106.6) —
+      //     the diagonal return-firer, deep in the pocket
+      //     mouth; 3.6 m off the ray, so Raka's fire never
+      //     picks him; his own beam crosses the lane at ~35°.
+      //   north-mid (+10.5, −3.6) at (−231.0, 106.6) — the
       //     third standing gun, holding his fire for the
-      //     frozen instant, stepped between the firer and the
-      //     primary in depth so the three read as individuals.
+      //     frozen instant, 3.8 m east of the firer along the
+      //     pocket's mouth so the three read as individuals
+      //     across the gap, not one mass against a wall.
       //   (Bearing fit, calibrated on two casts of this
       //     composition: x% ≈ 50.7 + 0.72·Δθ, Δθ = a man's
       //     bearing from the CAMERA minus the view axis's.
@@ -157,10 +166,10 @@ export function stageScene(name, api) {
       //     at Δθ ≈ +6° (~55%), north-mid ~+12° (~59%), the
       //     primary ~+18° (~63%) — spread, clear of the hero,
       //     and inside the window.)
-      api.addPed(-237.2, 110.3, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(-235.6, 109.4, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-235.8, 107.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(-233.6, 107.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-237.4, 109.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(-233.9, 109.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
+      api.addPed(-234.8, 106.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
+      api.addPed(-231.0, 106.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
       // The crowd. api.addPed returns the ped, and pinning its
       // wander speed is what keeps a browser browsing his stall
       // for the whole capture: the game's shoppers walk at up to
