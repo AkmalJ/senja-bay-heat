@@ -212,6 +212,52 @@ function personRng() {
   return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 }
 
+// -- Hand weapons (v5 detail pass) ----------------------------------
+// The old gun was a single small black box: at duel distances you
+// saw beams but no weapon. Each class now gets a real silhouette —
+// a dark receiver, steel that catches the senja light, one tan
+// furniture accent — long enough to read as a gun in profile at
+// 15 m and still register in a 380 px duel frame. Meshes only:
+// no stats, poses or firing logic live here. Class is picked from
+// the role the caller already declares (cop / hostile / other),
+// varied by the person's own rng.
+function buildGunMesh(opts, rnd) {
+  const gun = new THREE.Group();
+  gun.position.set(-0.42, 1.28, 0.02);
+  const body = lam(0x23262b), steel = lam(0x9fb0bc), tan = lam(0xb08954);
+  const cls = opts.weapon
+    ?? (opts.cop ? (rnd() < 0.35 ? "long" : "pistol")
+      : opts.hostile ? (rnd() < 0.45 ? "smg" : rnd() < 0.62 ? "long" : "pistol")
+      : "smg");
+  if (cls === "pistol") {
+    cbox(0.075, 0.15, 0.4, body, 0, 0.02, 0.18, gun);        // frame + barrel
+    cbox(0.065, 0.055, 0.42, steel, 0, 0.115, 0.19, gun);   // slide
+    const grip = cbox(0.07, 0.24, 0.11, body, 0, -0.1, 0.0, gun);
+    grip.rotation.x = 0.28;
+    cbox(0.05, 0.05, 0.05, steel, 0, 0.16, 0.4, gun);        // front sight
+  } else if (cls === "smg") {
+    cbox(0.09, 0.16, 0.55, body, 0, 0.03, 0.24, gun);       // receiver
+    cbox(0.06, 0.05, 0.3, steel, 0, 0.135, 0.3, gun);       // top rail
+    cbox(0.055, 0.06, 0.34, steel, 0, 0.05, 0.66, gun);     // barrel + shroud
+    const mag = cbox(0.07, 0.32, 0.11, tan, 0, -0.16, 0.28, gun);
+    mag.rotation.x = -0.16;
+    cbox(0.08, 0.13, 0.2, tan, 0, 0.01, -0.14, gun);        // stock
+    cbox(0.06, 0.16, 0.06, body, 0, -0.12, 0.52, gun);      // foregrip
+  } else {
+    // Long gun (the 12G Laras pattern): tan furniture, a long
+    // steel barrel, the bead sight at the muzzle.
+    cbox(0.09, 0.17, 0.58, body, 0, 0.03, 0.2, gun);        // receiver
+    cbox(0.055, 0.055, 0.55, steel, 0, 0.075, 0.72, gun);   // barrel
+    cbox(0.105, 0.12, 0.3, tan, 0, -0.03, 0.62, gun);       // fore-end / pump
+    const stock = cbox(0.08, 0.2, 0.34, tan, 0, -0.03, -0.2, gun);
+    stock.rotation.x = -0.1;
+    cbox(0.045, 0.07, 0.045, steel, 0, 0.16, 0.94, gun);    // bead sight
+    const tube = cbox(0.07, 0.2, 0.1, body, 0, -0.14, 0.26, gun);
+    tube.rotation.x = -0.1;
+  }
+  return gun;
+}
+
 export function buildPersonMesh(opts = {}) {
   const g = new THREE.Group();
   const rnd = personRng();
@@ -330,7 +376,8 @@ export function buildPersonMesh(opts = {}) {
     strap.rotation.z = 0.55;
   }
   if (opts.gun) {
-    const gun = box(0.08, 0.12, 0.55, MAT.black, -0.42, 1.3, 0.3, g);
+    const gun = buildGunMesh(opts, rnd);
+    g.add(gun);
     g.userData.gun = gun;
   }
   if (opts.hostile) {
