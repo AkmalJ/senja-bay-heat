@@ -281,8 +281,16 @@ function buildGunMesh(opts, rnd) {
 // blocks in near-black so the parts stay nameable against the
 // light body — long receiver, pale top rail, a fat dark magazine
 // hanging below, dark stock behind, dark muzzle brake at the
-// tip. Chunkier in every dimension than the game SMG; the
-// silhouette is the message. Nothing in normal play calls this:
+// tip. The first build ran chunkier than the game SMG in every
+// dimension and the owner called it too big ("kegedean — bikin
+// ukurannya normal aja"), so the group is scaled back until its
+// rendered envelope matches the game's standard SMG exactly:
+// the raw hero envelope (0.20 wide × 0.86 tall × 1.635 long)
+// scaled by (0.85, 0.87, 1.03) lands on 0.170 × 0.748 × 1.684,
+// against the standard SMG's rendered 0.169 × 0.751 × 1.690
+// (its 0.13 × 0.578 × 1.30 part envelope at the ×1.3 presence
+// step). Only the size changed; the contrast treatment is the
+// silhouette's message now. Nothing in normal play calls this:
 // it is swapped onto a staged mesh only, through the STAGE-only
 // api levers in main.js (setHeroGun / heroGunPed).
 export function buildHeroGunMesh() {
@@ -302,6 +310,7 @@ export function buildHeroGunMesh() {
   const grip = cbox(0.11, 0.26, 0.12, dark, 0, -0.17, 0.02, gun); // pistol grip
   grip.rotation.x = 0.22;
   cbox(0.15, 0.22, 0.34, dark, 0, 0.03, -0.30, gun);      // stock
+  gun.scale.set(0.85, 0.87, 1.03);   // back to the standard SMG's rendered envelope (see header)
   return gun;
 }
 
