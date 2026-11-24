@@ -4,6 +4,9 @@
 // copying game/ and screenshots/ to /output and writing /output/dossier.json
 // with the vendored make.fun library, exactly as the kit prescribes.
 //
+// Final v5 hand-in: screenshots/ carries the locked set — the Strand chase
+// cover, the port duel, the title screen and the town map board.
+//
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts

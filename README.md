@@ -6,6 +6,8 @@ foot and by car, with traffic and pedestrians, cars to steal, a five-star
 wanted system (patrol cars that ram and flank, roadblocks, foot units and the
 Air One helicopter), eight story jobs, four weapons, a crew with three
 abilities, a HUD with a live minimap, a start screen and a saved game.
+Gunfire is physical: bullets fly as short streaks with fading trails, and
+every shot ejects a spent brass casing that spins, falls and fades.
 
 The city, characters, vehicles, names, story, art, sound and music are all
 original to this game. Every sound is synthesised with WebAudio; the only
