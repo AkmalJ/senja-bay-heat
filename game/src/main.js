@@ -82,7 +82,7 @@ const S = {
 // without it his shots came out of a bare shoulder and no frame
 // could ever show a weapon in his hands. Its visibility follows the
 // selected weapon (see updatePlayer): up for a firearm, gone for
-// fists. The barrel tip is where shoot() now starts its beams. He
+// fists. The barrel tip is where shoot() now starts its streaks. He
 // never wears the crowd's random shoulder bag: its pale strap lay
 // diagonally across his back in the staged frames and read as
 // anything but a gunman, so his build opts out of it for good.
@@ -486,37 +486,44 @@ const flash = new THREE.PointLight(0xffc46b, 0, 18);
 scene.add(flash);
 let fireTimer = 0;
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
-// Gunfire visuals, tuned as TRACERS (v5, fading shader v5.6). The
-// v4 pooled beams — an 11 cm core wrapped in a 24 cm halo, alive
-// for 0.16 s — read on screen as laser slabs, not bullets. The v5
-// thinning helped in motion, but a uniform-opacity beam still
-// froze as one rigid bright line end-to-end: a laser. The beam is
-// now a shader that FADES along its length — full brightness at
-// the muzzle, dying to nothing at the target, the way a real
-// tracer streak burns out — over a thinner warm core (4 cm) with
-// a tight glow (9 cm). The IMPACT carries the rest of the read: a
-// fat warm spark burst plus a puff of dust and smoke where the
-// round lands, and a star-shaped flash at the muzzle. Hostile
-// fire is dimmer and redder, and dies faster, so a two-way fight
-// never becomes a light show. Beams and orbs are pooled and
-// recycled like the ambient Effects pool, so the frame loop never
-// allocates for gunfire.
-const beams = [];
-let beamCursor = 0, lastBeamEnd = null;
-// Screenshot staging can freeze the gunfire effects at their peak
-// (see setFxFreeze near the staged-scene block): the tracer lives
-// 0.09 s, far shorter than a screenshot grab takes, so without a
-// hold no still could ever show the beam the game really fired.
-// The flag is only settable through the STAGE-only debug handle —
-// in normal play it stays false and every effect ages exactly as
-// it always has.
+// Gunfire visuals (v5.7): BULLET STREAKS, not beams. Every
+// earlier pass drew some form of continuous gun-to-target line —
+// v4 slabs, then a thinner beam, then a beam whose shader faded
+// along its length — and every one still froze as a laser: a
+// solid bright line tying the gun to the man it hit (the owner's
+// word, three rounds running). A real round is never a line: it
+// is a SHORT bright segment in flight, a couple of metres of
+// burning core with a trail that dies behind it. So the beam is
+// gone. A shot now spawns a streak — the same fading shader over
+// a 4 cm warm core with a 9 cm glow — that TRAVELS from muzzle
+// to target at ~120 m/s: at any instant only the segment around
+// the bullet exists, head bright, tail burnt out, and no frame
+// ever shows a line joining gun and target. The IMPACT still
+// carries the landing read: a fat warm spark burst plus a puff
+// of dust and smoke, and a star-shaped flash at the muzzle.
+// Hostile fire is dimmer and redder, so a two-way fight never
+// becomes a light show. Streaks and orbs are pooled and recycled
+// like the ambient Effects pool, so the frame loop never
+// allocates for gunfire. And every shot now kicks out a spent
+// brass casing (pool below) — the owner's "bekas peluru yg
+// kebuang": a real gun throws its brass, so ours do too.
+const streaks = [];
+let streakCursor = 0, lastBeamEnd = null;
+// Screenshot staging can freeze the gunfire effects mid-flight
+// (see setFxFreeze near the staged-scene block): a streak crosses
+// its target in ~0.15 s, far shorter than a screenshot grab
+// takes, so without a hold no still could ever show the bullet
+// the game really fired. The flag is only settable through the
+// STAGE-only debug handle — in normal play it stays false and
+// every effect ages exactly as it always has.
 let fxFrozen = false, lastShotAt = 0;
 const beamGeo = new THREE.BoxGeometry(1, 1, 1);
-// The fade runs along the beam's local Z: the unit box spans
-// z -0.5..0.5, lookAt puts +Z on the target, so vT is 0 at the
-// muzzle and 1 at the target, and alpha falls as pow(1-vT, 1.3)
-// — steep enough to kill the line's end, gentle enough that the
-// streak's bright half survives a downscale to screenshot size.
+// The fade runs along the segment's local Z: the unit box spans
+// z -0.5..0.5 and the mesh is lookAt'd BACKWARD (toward the
+// muzzle it came from), so +Z points at the fading tail, vT is
+// 0 at the bullet's bright head and 1 at the tail's dead end,
+// and alpha falls as pow(1-vT, 1.3) — the head burns full, the
+// trail dies to nothing a couple of metres behind it.
 const beamVert = `
   varying float vT;
   void main() {
@@ -534,7 +541,7 @@ const beamFrag = `
     gl_FragColor = vec4(uColor, a);
   }
 `;
-function beamPart(width, color, opacity) {
+function streakPart(width, color, opacity) {
   const mat = new THREE.ShaderMaterial({
     uniforms: { uColor: { value: new THREE.Color(color) }, uOpacity: { value: 0 } },
     vertexShader: beamVert, fragmentShader: beamFrag,
@@ -545,24 +552,107 @@ function beamPart(width, color, opacity) {
   scene.add(mesh);
   return { mesh, mat, width, baseOpacity: opacity };
 }
-for (let i = 0; i < 28; i++) beams.push({ core: beamPart(0.04, 0xffdf9e, 0.95), halo: beamPart(0.09, 0xffa64d, 0.13), life: 0, maxLife: 1 });
-function fireBeam(a, b, hostile) {
-  const slot = beams[beamCursor]; beamCursor = (beamCursor + 1) % beams.length;
+for (let i = 0; i < 28; i++) streaks.push({
+  core: streakPart(0.045, 0xffdf9e, 0.95), halo: streakPart(0.10, 0xffa64d, 0.13),
+  active: false, hostile: false, from: new THREE.Vector3(), dir: new THREE.Vector3(0, 0, 1),
+  dist: 0, travelled: 0, segLen: 2.4, speed: 120, firedAt: 0,
+});
+// Lay a streak's two parts over the segment the bullet currently
+// occupies: from max(travelled-segLen, 0) to min(travelled, dist)
+// along the shot line — growing out of the muzzle, full-length
+// mid-flight, shrinking into the target. Nothing is drawn before
+// the head leaves the muzzle or after the tail passes the target,
+// so gun and target are never joined on screen.
+const _streakCentre = new THREE.Vector3(), _streakBack = new THREE.Vector3();
+function placeStreak(slot) {
+  const head = Math.min(slot.travelled, slot.dist);
+  const tail = Math.max(slot.travelled - slot.segLen, 0);
+  const len = head - tail;
+  if (len <= 0.03) { slot.core.mesh.visible = false; slot.halo.mesh.visible = false; return; }
+  _streakCentre.copy(slot.from).addScaledVector(slot.dir, (head + tail) / 2);
+  _streakBack.copy(_streakCentre).addScaledVector(slot.dir, -1);
+  // Partial segments (just born, just landing) fade with their
+  // visible fraction so the streak never pops in or out whole.
+  const k = Math.min(1, len / (slot.segLen * 0.5));
+  for (const part of [slot.core, slot.halo]) {
+    part.mesh.position.copy(_streakCentre);
+    part.mesh.scale.set(part.width, part.width, len);
+    part.mesh.lookAt(_streakBack);
+    part.mat.uniforms.uOpacity.value = part.baseOpacity * k;
+    part.mesh.visible = true;
+  }
+}
+function fireStreak(a, b, hostile) {
+  const slot = streaks[streakCursor]; streakCursor = (streakCursor + 1) % streaks.length;
   slot.core.mat.uniforms.uColor.value.setHex(hostile ? 0xff9d8a : 0xffdf9e);
   slot.halo.mat.uniforms.uColor.value.setHex(hostile ? 0xff4a3d : 0xffa64d);
   slot.core.baseOpacity = hostile ? 0.6 : 0.95;
   slot.halo.baseOpacity = hostile ? 0.07 : 0.13;
-  const len = Math.max(a.distanceTo(b), 0.1);
-  for (const part of [slot.core, slot.halo]) {
-    part.mesh.position.copy(a).add(b).multiplyScalar(0.5);
-    part.mesh.scale.set(part.width, part.width, len);
-    part.mesh.lookAt(b);
-    part.mat.uniforms.uOpacity.value = part.baseOpacity;
-    part.mesh.visible = true;
-  }
-  slot.life = slot.maxLife = hostile ? 0.07 : 0.09;
+  slot.from.copy(a);
+  slot.dir.copy(b).sub(a);
+  slot.dist = Math.max(slot.dir.length(), 0.1);
+  slot.dir.normalize();
+  slot.segLen = hostile ? 2.0 : 2.4;
+  slot.speed = hostile ? 110 : 120;
+  slot.travelled = 0;
+  slot.hostile = hostile;
+  slot.active = true;
   slot.firedAt = performance.now();
+  placeStreak(slot);
   lastBeamEnd = b.clone();
+}
+// Spent casings: a tiny brass box per shot, popped out of the
+// gun's side with a spin, down with gravity, gone a breath after
+// it lands. Pooled like everything else in this block — 48 in
+// the ring is far past any firefight's output (an SMG at full
+// auto sheds ~12/s and a casing lives ~1.5 s) — each with its
+// own material clone so the landing fade is per-casing. Under
+// the staging freeze they hang in the air where they were
+// caught, like every other effect here.
+const casings = [];
+let casingCursor = 0;
+const casingGeo = new THREE.BoxGeometry(0.055, 0.028, 0.028);
+for (let i = 0; i < 48; i++) {
+  const mat = new THREE.MeshBasicMaterial({ color: 0xd9a441, transparent: true, opacity: 1 });
+  const mesh = new THREE.Mesh(casingGeo, mat);
+  mesh.visible = false;
+  scene.add(mesh);
+  casings.push({ mesh, mat, active: false, vel: new THREE.Vector3(), spinX: 0, spinZ: 0, age: 0, life: 1.5, landed: false, firedAt: 0 });
+}
+function ejectCasing(muzzle, heading) {
+  const c = casings[casingCursor]; casingCursor = (casingCursor + 1) % casings.length;
+  // Out of the receiver, not the muzzle: start a step back from
+  // the barrel tip, at the gun in the bearer's hand.
+  const fx = Math.sin(heading), fz = Math.cos(heading);
+  c.mesh.position.set(muzzle.x - fx * 0.4, muzzle.y - 0.04, muzzle.z - fz * 0.4);
+  // Sideways off the gun's right, up, and a touch back — the
+  // arc a real ejection throws. Right of heading (sin, cos) is
+  // (cos, -sin) in this world's axes.
+  c.vel.set(
+    Math.cos(heading) * (1.1 + Math.random() * 0.5) - fx * 0.3,
+    2.0 + Math.random() * 0.7,
+    -Math.sin(heading) * (1.1 + Math.random() * 0.5) - fz * 0.3
+  );
+  c.spinX = (Math.random() - 0.5) * 22; c.spinZ = (Math.random() - 0.5) * 22;
+  c.mesh.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+  c.age = 0; c.landed = false; c.active = true;
+  c.mat.opacity = 1;
+  c.mesh.visible = true;
+  c.firedAt = performance.now();
+}
+function updateCasings(dt) {
+  for (const c of casings) {
+    if (!c.active) continue;
+    c.age += dt;
+    if (c.age >= c.life) { c.active = false; c.mesh.visible = false; continue; }
+    if (!c.landed) {
+      c.vel.y -= 7.5 * dt;
+      c.mesh.position.addScaledVector(c.vel, dt);
+      c.mesh.rotation.x += c.spinX * dt; c.mesh.rotation.z += c.spinZ * dt;
+      if (c.mesh.position.y <= 0.03) { c.mesh.position.y = 0.03; c.landed = true; }
+    }
+    if (c.age > c.life - 0.45) c.mat.opacity = Math.max(0, (c.life - c.age) / 0.45);
+  }
 }
 // The muzzle orb: a radial-gradient sprite, additive — the glowing
 // ball of fire a real muzzle flash blooms into for a few frames.
@@ -658,7 +748,7 @@ function shoot(dt) {
   // Under the staging freeze the held moment does not fire again:
   // the capture tool keeps the trigger held (and Raka's gun arm
   // raised) while it swings the camera around the frozen shot, and
-  // fresh rounds would fan new beams across the held frame. The
+  // fresh rounds would fan new streaks across the held frame. The
   // flag is STAGE-only (see setFxFreeze) — normal play never sets
   // it, so this line never turns a real shot away.
   if (fxFrozen) return;
@@ -679,7 +769,7 @@ function shoot(dt) {
   // class), rotated by Raka's heading into the world — the same
   // transform the hostile fire below uses for its muzzles. The
   // firing stance in updatePlayer keeps his heading on the aim
-  // while he shoots, so beam, orb and flash all leave the barrel.
+  // while he shoots, so streak, orb and flash all leave the barrel.
   // The star orb runs SMALL (0.5, down from 1.15): seated exactly
   // at the tip it accents the muzzle instead of blooming over
   // the whole weapon and hiding it (owner's call).
@@ -705,14 +795,14 @@ function shoot(dt) {
   for (const c of cars) if (!c.wrecked) testPoint(c, 2.4);
   const end = origin.clone().addScaledVector(dir, bestT);
   end.setY(1.3);
-  if (w.id !== "fists") fireBeam(muzzle, end, false);
+  if (w.id !== "fists") { fireStreak(muzzle, end, false); ejectCasing(muzzle, player.heading); }
   if (hit) {
-    // The impact carries the tracer's read (v5): a fat warm spark
+    // The impact carries the landing read (v5): a fat warm spark
     // burst, a tight glow, and a wisp of dust-smoke kicked off the
-    // target — the beam itself is only on screen for a few frames.
+    // target — the streak itself is gone in a few frames.
     // Trimmed once (v5.2) to nine so a frozen cluster could not
     // blob over the man; back up to thirteen, wider and longer-
-    // lived (v5.6), because with the beam fading along its length
+    // lived (v5.6), because with the streak burning out in flight
     // the impact burst carries more of the shot's read — and it
     // still has to read as sparks ON a man who stays visible.
     burst(end, 0xffc46b, 13, 2.4, 2.0, 1.0, 0.42);
@@ -1026,7 +1116,8 @@ function updatePeds(dt) {
           p.shootCd = 0.9 + Math.random() * 0.9;
           audio.shoot("smg");
           // Return fire wears the same signs as the player's — an orb
-          // at his muzzle and a beam to the man he is shooting at —
+          // at his muzzle and a streak flying at the man he is
+          // shooting at —
           // so a two-way fight reads from either side. The orb sits
           // on the barrel tip of the gun in his hand (gunMuzzleLocal)
           // and runs SMALL (0.46): the old 0.92 bloom was seated at a
@@ -1037,7 +1128,8 @@ function updatePeds(dt) {
           // the shot without hiding the gun it leaves.
           const muzzle = (gunMuzzleLocal(p.mesh) ?? new THREE.Vector3(-0.42, 1.35, 0.35)).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
           fireOrb(muzzle, 0.46, 0xffc9b0, true);
-          fireBeam(muzzle, new THREE.Vector3(fp.x, 1.3, fp.z), true);
+          fireStreak(muzzle, new THREE.Vector3(fp.x, 1.3, fp.z), true);
+          ejectCasing(muzzle, p.heading);
           // The hit on Raka reads as flecks, not fruit (v5.4): the
           // old burst threw five 0.35 m pink spheres at his chest,
           // which hung on his back like shoulder pads in any held
@@ -1057,7 +1149,7 @@ function updatePeds(dt) {
       // play never grows one. He stands his ground, keeps his gun
       // up on his assigned target (aimingNow: the blended aiming
       // pose updatePlayer gives Raka, applied below animatePerson),
-      // and trades COSMETIC fire with it — a real beam and star
+      // and trades COSMETIC fire with it — a real streak and star
       // orb from his own barrel, but no damage either way. Set
       // dressing for the two-way-fight read, not a combatant.
       move = 0;
@@ -1068,7 +1160,8 @@ function updatePeds(dt) {
         p.shootCd = 0.55 + Math.random() * 0.5;
         const muzzle = (gunMuzzleLocal(p.mesh) ?? new THREE.Vector3(-0.42, 1.35, 0.58)).applyAxisAngle(Y_AXIS, p.heading).add(p.pos);
         fireOrb(muzzle, 0.5, 0xffffff, true);
-        fireBeam(muzzle, new THREE.Vector3(p.aimX, 1.3, p.aimZ), false);
+        fireStreak(muzzle, new THREE.Vector3(p.aimX, 1.3, p.aimZ), false);
+        ejectCasing(muzzle, p.heading);
         audio.shoot("smg");
       }
     } else if (p.flee > 0 || (dPlayer < 6 && (mouseDown || S.wanted >= 2))) {
@@ -1922,26 +2015,28 @@ const api = {
   deployHelicopter() { heliActive = true; heli.visible = true; },
 };
 // Hold the gunfire effects at their peak for a screenshot grab.
-// The frame loop reads fxFrozen and stops ageing the beams, orbs,
+// The frame loop reads fxFrozen and stops ageing the streaks, orbs,
 // burst particles, dust puffs and the muzzle light (the world keeps
 // moving — only the effects hang). Turning the freeze on also
-// revives the freshest beam and orbs if they expired inside the
+// revives the freshest streak and orbs if they expired inside the
 // last 10 s of real time: at screenshot render rates a single
 // frame can take seconds of wall time, so the observer that
 // calls the freeze can lag the shot by several whole frames —
 // the window has to span that lag or the revival never lands.
-// What is revived is the game's own mesh, in the place the
-// game's own shot put it, at the brightness the game gave it —
-// the same fired moment, held, not a redrawn one. This is
+// A revived streak is re-seated mid-flight on its own shot line —
+// the same fired round, held where a freeze on the volley would
+// have caught it — and what is revived is the game's own mesh,
+// at the brightness the game gave it. This is
 // reachable ONLY through window.__senjaDebug below, which
 // exists only under ?stage= — normal play has no path to it.
 function setFxFreeze(on) {
   if (on) {
     const now = performance.now();
-    for (const slot of beams) {
-      if (slot.life <= 0 && slot.firedAt && now - slot.firedAt < 10000) {
-        slot.life = slot.maxLife;
-        slot.core.mesh.visible = true; slot.halo.mesh.visible = true;
+    for (const slot of streaks) {
+      if (!slot.active && slot.firedAt && now - slot.firedAt < 10000) {
+        slot.travelled = Math.min(Math.max(slot.dist * 0.45, slot.segLen * 0.8), slot.dist);
+        slot.active = true;
+        placeStreak(slot);
       }
     }
     for (const o of orbs) {
@@ -2039,18 +2134,24 @@ function frame(now) {
     if (S.wanted === 0 && S.health > 0 && S.health < 100) S.health = Math.min(100, S.health + dt * 1.2);
     // Gunfire visuals & particles & flash decay. Under the staging
     // freeze (fxFrozen, STAGE-only) none of these age or move: the
-    // beam, orbs, burst sparks, dust and muzzle light hang at the
-    // peak of the moment the freeze caught, while the world itself
-    // — crowd, water, traffic — keeps living around them.
+    // streak hangs mid-flight, the casing hangs mid-air, the orbs,
+    // burst sparks, dust and muzzle light hang at the peak of the
+    // moment the freeze caught, while the world itself — crowd,
+    // water, traffic — keeps living around them.
     if (!fxFrozen) flash.intensity = Math.max(0, flash.intensity - dt * 300);
-    for (const slot of beams) {
-      if (slot.life <= 0) continue;
-      if (!fxFrozen) slot.life -= dt;
-      const k = fxFrozen ? 1 : Math.max(slot.life, 0) / slot.maxLife;
-      slot.core.mat.uniforms.uOpacity.value = slot.core.baseOpacity * k;
-      slot.halo.mat.uniforms.uOpacity.value = slot.halo.baseOpacity * k;
-      if (slot.life <= 0) { slot.core.mesh.visible = false; slot.halo.mesh.visible = false; }
+    for (const slot of streaks) {
+      if (!slot.active) continue;
+      if (!fxFrozen) {
+        slot.travelled += slot.speed * dt;
+        if (slot.travelled - slot.segLen >= slot.dist) {
+          slot.active = false;
+          slot.core.mesh.visible = false; slot.halo.mesh.visible = false;
+          continue;
+        }
+      }
+      placeStreak(slot);
     }
+    if (!fxFrozen) updateCasings(dt);
     for (const o of orbs) {
       if (o.life <= 0) continue;
       if (!fxFrozen) o.life -= dt;
