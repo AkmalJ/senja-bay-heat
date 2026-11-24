@@ -1,487 +1,142 @@
-// shots.js — the four screenshot scenes behind ?stage=chase|market|port|hills.
-// Each scene drives the real game into a posed, playable state: a real car at
-// real speed, real police units with real dispatch rows, a real mission stage
-// on the panel. Nothing here draws anything the game itself cannot draw.
+// shots.js — the screenshot staging module. Plain play never sees
+// it: only a page opened with ?stage=<name> lands here, where a
+// scene is dressed (a career seeded, a chase rolled, a duel frozen
+// mid-volley) and a debug handle is published for the capture casts
+// in the shot-tool. Every lever on that handle moves real game
+// state; the casts compose frames, they do not fake them.
 
-export function stageScene(name, api) {
-  switch (name) {
-    case "chase": {
-      // Cover: golden-hour boulevard chase on the strand, air unit deployed.
-      // Clock 18.38 at staging — the capture's frames carry it into
-      // the ember band's peak (~18.6), where the locked senja is
-      // deepest: amber horizon, teal sky, lamps lit, and Air One's
-      // searchlight cone reads against the darkening boulevard.
-      // (The old 16.35 staging rendered as pale midday blue — the
-      // one hour the senja lock was written to abolish.)
-      api.setClock(18.38);
-      api.setStats({ money: 18450, respect: 1675, health: 72, armor: 55, stolen: 7 });
-      api.startJobAt(5, 1);                    // SIRENS AT DUSK, escape stage
-      api.placeInCar("Pelo GT", 285, 22, Math.PI, 31); // heading north up the strand road
-      // (car sits 8 m south of the z=30 palm row so no clipped crown
-      // hangs into the top-right of the frame)
-      // Cam offset -0.42: the view axis cuts ~24° across the
-      // boulevard, the road runs away diagonally, the beach and sea
-      // border the frame's right. The -0.15 experiment (545a4f5)
-      // looked straight down the road and crowded the mid-frame
-      // into a roadblock wall — the owner judged the earlier
-      // -0.42 cover better and ordered it restored (cover-fix
-      // round): same diagonal, now under the senja clock and the
-      // widened searchlight cone.
-      api.setCamOffset(-0.42);
-      api.setWanted(4, true);
-      api.spawnChasePack(4, 16);
-      api.deployHelicopter();
-      // Boulevard dressing: a taxi and a hatchback parked along the kerbs,
-      // people on the promenade, boats out on the water to the right.
-      api.parkCar("Taksi Senja", 276, 84, Math.PI);
-      api.parkCar("Kijang Sprint", 295, -36, 0);
-      api.addPed(297, 6, {});
-      api.addPed(298, 52, {});
-      api.addPed(273, 66, {});
-      api.setPackagesFound(5);
-      // Career coherence for the town board (the map shot rides
-      // this same staged save): a fixer five jobs in with money
-      // and packages banked has lifted cars and won a race — the
-      // ledger's zeros read as a bug, not a career. Strand Sprint
-      // banked at 48.6 s, just under its 50 s par; the other two
-      // races stay unrun.
-      api.setRaceBest("STRAND SPRINT", 48.6);
-      api.setRadio(0);
-      api.dialogue("Sinta", "DRIVER — CREW", "Every cruiser in the bay and Air One want that orange Pelo. Forty seconds on the Strand, then you vanish.");
-      break;
+export function applyStage(G) {
+  const stage = new URLSearchParams(location.search).get("stage");
+  const S = G.state;
+  const { player, hud } = G;
+
+  const seedCareer = (over) => {
+    Object.assign(S, {
+      money: 18450, respect: 1675, missionIndex: 5, stageIndex: 1, stageLeft: 0,
+      ammo: { pistol: 96, smg: 240, shotgun: 32 },
+      unlocked: { pistol: true, smg: true, shotgun: true },
+      stolen: 7, health: 72, armour: 55, clock: 18.43, wanted: 4, heat: 0,
+      act: { best: { strand: 48.6 }, taken: [0, 1, 2, 3, 4] },
+      stageLock: true,
+    }, over || {});
+  };
+
+  G.startGame(false);
+
+  if (stage === "chase") {
+    // The cover: Sinta's job at stage two, the orange Pelo already
+    // lifted and running the boulevard with the whole bay behind it.
+    seedCareer();
+    S.camOffset = -0.42;
+    const car = G.spawnCar("pelo", 0xe8641c, 282, 30, Math.PI, "parked");
+    car.speed = 29; car.autopilot = true; car.countedTheft = true;
+    S.inCar = car;
+    player.mesh.visible = false;
+    // A clear boulevard to run on: tonight's traffic is elsewhere,
+    // and two cruisers are already on his tail — the rest converge.
+    for (const c of G.cars) {
+      if (c !== car && c.kind !== "police" && Math.hypot(c.pos.x - 282, c.pos.z - 30) < 140) {
+        c.pos.set(-260 + (Math.abs(c.pos.x) % 40), 0, -260 + (Math.abs(c.pos.z) % 40));
+        c.mesh.position.copy(c.pos);
+      }
     }
-    case "market": {
-      // On-foot combat INSIDE the night market — v5.3 staging,
-      // in the widened market's aisle 2 (centre z = 109.75,
-      // clear lane z ≈ 106.9–112.6 between the stall colliders).
-      //
-      // THE CLEAN-WINDOW RECOMPOSITION (owner's verdict on the
-      // v5.2 frame, treated as spec): the shootout was barely
-      // visible — the enemy group landed at ~70–80% of frame
-      // width, inside the right HUD column, small and crowded
-      // out, and the return fire never read, so the frame
-      // played as one-way fire. The frame's CLEAN STAGE WINDOW
-      // — the band no HUD panel owns — is roughly 30–65% of
-      // width, vertical middle. This staging is composed
-      // inside it, and the composition was designed on a
-      // calibrated camera model before it was staged (model:
-      // follow cam 4.2 m back, HFOV ≈ 88.8°, swing = camOffset;
-      // bias-corrected against the measured v5.2 frame):
-      //   * SPREAD, NOT CLUSTER (the Brisa Bay lesson): the
-      //     gang stands as INDIVIDUALS across the window on
-      //     open lane floor, each with empty space around him —
-      //     a north firer at the window's left (~43%), a
-      //     north-mid holder (~55%), the primary target on the
-      //     ray (~59%) — not one pink mass at the frame's edge.
-      //     The spread is built from the CAMERA's bearings, not
-      //     from Raka's: north-side men sit nearer the swung
-      //     view axis and land central; anything south of the
-      //     ray is flung past 75% by the swing (measured: the
-      //     old south firer stood at ~91% — inside the weapon
-      //     panels — which is why his fire never read).
-      //   * RAKA FIGHTS FROM THE LANE'S SOUTH HALF (z = 110.2)
-      //     so the whole gang can stand NORTH of his ray, in
-      //     the open lane. Behind them the north row now opens
-      //     into the DUEL POCKET (city.js): two stalls removed
-      //     behind the fight stretch, the row continuing on
-      //     both sides — open lit space at the gang's backs
-      //     instead of a stall wall, the pocket's LAUT SEGAR
-      //     board hung across its back.
-      //   * THE LATERAL LINE stays: Raka fires due EAST
-      //     (camOffset 0 while the trigger is held), the beam
-      //     travels horizontally, and after the freeze the
-      //     capture tool swings the camera to his gun side.
-      //     The swing is pushed as far toward profile as the
-      //     duel staying inside the window allows — the casts
-      //     measure each stop in pixels and the largest swing
-      //     that keeps every enemy under 65% wins.
-      //   * ONE MAN DOWN, ISOLATED (the Karimbu lesson): the
-      //     near man stands on the ray 4.1 m out, a step north
-      //     of its line; his body settles toward Raka along
-      //     ~1.9 m of lane and comes to rest at the pocket's
-      //     mouth with NOTHING within ~1.5 m of it — the
-      //     primary's feet metres past his head, the crowd
-      //     pairs far off at the pocket's corners — a body
-      //     alone in a lit patch of open floor under the beam,
-      //     not a shape lost under legs or stall clutter. He
-      //     wears the gang purple without the vest: face-up,
-      //     the bare shirt is what keeps a body readable.
-      //   * RETURN FIRE IS CARRIED BY THE ORBS (the PCPD
-      //     lesson): three guns fire back in the reference
-      //     frames and what reads is a big glowing orb at each
-      //     enemy muzzle, the beam as support. Two firers are
-      //     cued by the capture tool at the freeze: the primary
-      //     (his beam runs collinear with Raka's — one line
-      //     hides the other, cast36's evidence — so HIS read
-      //     is his orb and the burst he puts on Raka) and the
-      //     NORTH FIRER, 5.2 m out and 2.7 m north of the ray,
-      //     whose beam crosses the open lane at ~32° in plan —
-      //     a genuinely different angle, over lit floor, from
-      //     a muzzle the swing keeps at the window's left edge
-      //     where nothing crowds it. The hostile orb itself
-      //     now runs 0.92 in the game (v5.3): at the shipped
-      //     0.55 the bloom never registered in a still.
-      //   * THE RED ▼: every staged hostile wears the game's
-      //     own combat marker over his head (v5.3, in
-      //     actors.js/main.js — a real feature of normal play,
-      //     not staging paint): three small red triangles over
-      //     three spread gunmen is the direct answer to
-      //     "the enemies are covered, I can't see them".
-      //   * THE CROWD frames the duel from the same plane:
-      //     pinned pairs along both stall fronts, west and
-      //     east of the fight, none within 1.5 m of the corpse
-      //     patch and none crossing the sightline; two
-      //     unpinned reactors flee when the shooting starts.
-      //   * THE FREEZE. The tracer lives 0.09 s — no grab can
-      //     catch it live — so the capture tool fires the duel
-      //     for real, then freezes the effects at the primary's
-      //     first hit through the STAGE-only setFxFreeze
-      //     handle: every beam and orb fired inside the window
-      //     (Raka's outbound, both firers' inbound, all three
-      //     muzzle blooms) hangs at full brightness in one
-      //     still while the aisle keeps living around them.
-      //   * NO POLICE LIGHT IN THE FRAME. The dispatch panel
-      //     may list its units — the capture tool holds the
-      //     response cars at bay for the length of the duel.
-      // Clock 19.7 at staging (the HUD reads ~19:49 by the
-      // capture): the late edge of the locked senja — lamps,
-      // lit sign faces and gunfire are the frame's brightest
-      // things.
-      api.setClock(19.7);
-      api.setStats({ money: 7270, respect: 940, health: 100, armor: 80 });
-      api.startJobAt(1, 1);                    // clear-the-aisles stage (spawns hostiles)
-      api.placeOnFoot(-241.5, 110.2, Math.PI / 2); // aisle 2's south half, firing due east along z = 110.2
-      api.setCamOffset(0);
-      // The fight, relative to Raka at (−241.5, 110.2) —
-      // the pocket round: the standing men spend the space
-      // the crossroads gap freed, spread wider across its
-      // frontage and a step deeper into its mouth:
-      //   near man (+4.1, −0.3) at (−237.4, 109.9) — the kill;
-      //     his body settles west along the lane into its own
-      //     empty patch at the pocket's mouth under the beam.
-      //   primary (+7.6, −0.7) at (−233.9, 109.5) — the
-      //     standing target Raka's frozen burst lands on, a
-      //     cued return-firer; 0.7 m north of the ray line is
-      //     inside the ray test's 0.9 pick tolerance, so
-      //     Raka's fire still walks near man → primary.
-      //     (Moved east in the cast45 pass: the corpse now
-      //     owns the pocket's western mouth alone, ~5.4 m
-      //     clear of him.)
-      //   north firer (+6.7, −3.6) at (−234.8, 106.6) —
-      //     the diagonal return-firer, deep in the pocket
-      //     mouth; 3.6 m off the ray, so Raka's fire never
-      //     picks him; his own beam crosses the lane at ~35°.
-      //   north-mid (+10.5, −3.6) at (−231.0, 106.6) — the
-      //     third standing gun, holding his fire for the
-      //     frozen instant, 3.8 m east of the firer along the
-      //     pocket's mouth so the three read as individuals
-      //     across the gap, not one mass against a wall.
-      //   (Bearing fit, calibrated on two casts of this
-      //     composition: x% ≈ 50.7 + 0.72·Δθ, Δθ = a man's
-      //     bearing from the CAMERA minus the view axis's.
-      //     The trap it exposed: a man standing ON the axis
-      //     bearing (Δθ ≈ 0) projects onto Raka's silhouette
-      //     and vanishes behind him — the firer's first two
-      //     spots sat within 2° of the axis at their swings.
-      //     The landed swing is ~0.65, which puts the firer
-      //     at Δθ ≈ +6° (~55%), north-mid ~+12° (~59%), the
-      //     primary ~+18° (~63%) — spread, clear of the hero,
-      //     and inside the window.)
-      api.addPed(-237.4, 109.9, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(-233.9, 109.5, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      api.addPed(-234.8, 106.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: false });
-      api.addPed(-231.0, 106.6, { hostile: true, gun: true, shirt: 0x6c3483, vest: true });
-      // The crowd. api.addPed returns the ped, and pinning its
-      // wander speed is what keeps a browser browsing his stall
-      // for the whole capture: the game's shoppers walk at up to
-      // 3 m/s and think nothing of crossing a gunfight — an
-      // earlier take lost its target behind a wanderer who
-      // strolled into the sightline and stood there.
-      const shopper = (x, z, speed) => { const p = api.addPed(x, z, {}); if (p) p.speed = speed; };
-      // North-front pairs, west and east of the fight:
-      shopper(-248.5, 107.6, 0.3);
-      shopper(-247.2, 107.7, 0.35);
-      shopper(-229.8, 107.6, 0.35);
-      shopper(-228.5, 107.7, 0.3);
-      // South-front pairs — foreground framing at the swung
-      // camera's flanks, clear of its sightline cone and of
-      // the corpse patch:
-      shopper(-249.5, 112.3, 0.3);
-      shopper(-248.2, 112.4, 0.35);
-      shopper(-231.5, 112.3, 0.35);
-      shopper(-230.2, 112.4, 0.3);
-      // Reactors inside the panic radius — already running when
-      // the first shot lands:
-      api.addPed(-252, 110.8, {});
-      api.addPed(-226.5, 111.5, {});
-      // A shopper's scooter parked in the crossroads south of
-      // the aisle's east stretch; the HUD's package count is
-      // set to the beach and pier finds, so the market's own
-      // package (west of the fight, at the aisle's mouth)
-      // stays lit.
-      api.parkCar("Senja Scooter", -209, 116.5, 1.4);
-      api.setPackagesFound(2);
-      api.parkCar("Bemo Pickup", -196, 150, 0.5);
-      api.selectWeapon("smg");
-      api.setWanted(2, true);
-      api.spawnFootPack(2);
-      api.dialogue("Laras", "LOOKOUT — CREW", "They're dug into aisle two, Raka — drop the front man and the lane is ours before SBPD floods the crossroads.");
-      break;
-    }
-    case "port":
-    case "portshoulder":
-    case "portwide":
-    case "portduel": {
-      const SHOULDER = name === "portshoulder";
-      const WIDE = name === "portwide";
-      const DUEL = name === "portduel";
-      // Dusk-night shootout at Pelabuhan. Three stagings taught
-      // the geography the hard way: the apron is a featureless
-      // slab (casts 53–55: fog void, flash disc, no backdrop),
-      // and the container scatter does not respect the roads —
-      // at (163, 190) a magenta box sits ON the road and ate the
-      // camera (cast 56). The recon probe (probe-port.mjs) found
-      // the stretch that works: the z = 190 road at x ≈ 205 —
-      // open asphalt, a barrel at the kerb, and the field's
-      // biggest cluster (a red box, a blue stack) standing SOUTH
-      // of the road 10–15 m behind the fight line.
-      //
-      // So the market geometry is MIRRORED: Raka fires due EAST
-      // (heading π/2) along the road and the gang stands SOUTH
-      // of the ray against the container cluster, and the capture
-      // tool swings the camera the other way (negative offset,
-      // to Raka's gun side).
-      // THE FIX ROUND (owner's review of the first shipped
-      // frame) moved the whole fight 7 m WEST, from x = 203 to
-      // x = 196: at 203 the cluster's long red box hung its flat
-      // face across the frame's centre like a billboard; at 196
-      // the same box steps right and shrinks, the blue stack and
-      // the green box take the centre sky, and only the far men
-      // touch red.
-      // THE BURNING CAR is the drama anchor, and it now sits
-      // where the swung camera actually looks: a Kijang wrecked
-      // on the apron's south edge at (204, 197), in FRONT of the
-      // red container's face — its fire and charred body break
-      // the flat red mass behind the gang, and nothing stands
-      // between its flames and the lens. (Two earlier spots
-      // failed on evidence: (219, 188.5) sat beyond the gang and
-      // the red box swallowed it whole; (202.5, 185.3) on the
-      // north lane swung out of the frame entirely — the
-      // negative swing throws the road's north side off the
-      // left edge.) The capture tool burns it (wrecked; health
-      // <= 15 is the game's own fire threshold) and chars it the
-      // way damageCar does before the duel, so its flames and
-      // flickering light are live game systems, not paint.
-      // Clock 19.55 at staging — the capture lands in the
-      // dusk-night family (~19.9): lamps and port work lights at
-      // full strength under a deep teal sky.
-      // PORT POLISH moved the staging clock to 19.8 (capture
-      // lands ~20.0): the deeper ambient is what lets the v5.5
-      // flame core read as fire at judge scale instead of
-      // washing into the bright dusk sky.
-      api.setClock(19.8);
-      api.setStats({ money: 18450, respect: 2210, health: 100, armor: 70 });
-      api.startJobAt(6, 1);                    // THE LONG TABLE, clear-the-port-road stage
-      // THE DUEL VARIANT (?stage=portduel, owner's annotation of
-      // the fx-port frame: "karakter kita ngadepnya ke salah satu
-      // karakter yang ditandain biru itu, jadi senjata karakter
-      // kita keliatan" — turn him onto the circled pair so his
-      // weapon reads). Raka starts turned 45° right of east
-      // (heading π/4, facing SE) and the capture fights him on
-      // the +0.20 offset aim (0.985 rad): his target T1 stands
-      // exactly on that ray at (209.7, 198.6), 16.5 m out in
-      // front of the container face, with T2 beside him at
-      // (208.0, 200.8) — the pair from the owner's blue circles,
-      // re-spotted inside the 17 m engage ring so BOTH shoot
-      // back. In fx-port the camera sat on his anti-gun side
-      // (dot of camera offset vs gun-side dir −1.3) and the gun
-      // hid behind his back; here the wide levers put the
-      // camera on his gun side (+2.5 at the fight offset, more
-      // after the capture swing) and his body turns across the
-      // view — gun arm up, barrel across his silhouette. One
-      // crew ally (Bima's rust shirt) stands at his right,
-      // (193.8, 191.8), gun up on T1, trading cosmetic fire.
-      api.placeOnFoot(196, 189.5, DUEL ? Math.PI / 4 : Math.PI / 2); // port road at the container cluster, firing east
-      api.setCamOffset(DUEL ? 0.20 : 0);
-      // THE SHOULDER VARIANT (?stage=portshoulder, owner's
-      // standing camera taste: "dari bahu" — from the shoulder).
-      // The camShoulder lever steps the follow camera and its
-      // aim point 1.3 m sideways together, so Raka slides to the
-      // frame's left third (measured centre 31.6, box 26.0-36.6)
-      // big in near-profile, and the gang re-fans in front of
-      // him along the wall toward a wreck moved to the line's
-      // east end (212.5, 200.5). The cast82 probes proved the
-      // full rule set is over-constrained — the primary is
-      // chained to the duel ray (perp < 0.9 of z = 189.5), and
-      // at swing -0.62 / shoulder 1.3 he lands at centre 23.7,
-      // clear of the hero (0.8 pts) but with his marker and
-      // bandana top grazing the dispatch panel's bottom edge
-      // (head y 44.9 vs panel bottom ~46.9 at pitch 0.04; every
-      // other combo buries him behind Raka or the panel
-      // outright). The fan therefore runs P, then M2-M5 arcing
-      // south-east in one line: measured centres ~40, 44, 48,
-      // 52, all complete, none behind the hero, all < 65.
-      if (SHOULDER) api.setCamShoulder(1.3);
-      // THE WIDE VARIANT (?stage=portwide, owner's review of
-      // the shoulder frame: "gengnya di kiri semua, padahal
-      // kanan masih kosong — POV-nya agak jauh sedikit biar
-      // lebih luas"). Same over-shoulder grammar, but the
-      // follow pulls BACK (staging-only S.camBack adds to the
-      // follow distance; inert in play) so the yard opens up,
-      // and the fan spreads east along the wall toward a wreck
-      // at (215.5, 202) so no third of the frame sits empty.
-      // The shoulder grows to hold Raka at the left third from
-      // the longer distance. First two men never move (ray
-      // chain, see the angle-fix note below). The cast88/89
-      // probes (22 combos, game's own camera model) picked
-      // the capture geometry: swing -0.52, shoulder 1.5, back
-      // 1.8 (dist 5.25), pitch 0.16 — the only family where
-      // the primary clears BOTH the hero (0.0 overlap) and
-      // the dispatch panel (his box straddles its right edge,
-      // body in the open), all five men read, and the fan's
-      // tail reaches ~54-58 with the wreck's flame mid-fan;
-      // -0.42 buries the primary behind the hero, -0.62
-      // behind the panel, and a farther fan (cast89 fan B)
-      // compresses instead of spreading — screen reach is
-      // angular, not linear.
-      if (WIDE || DUEL) { api.setCamShoulder(1.5); api.setCamBack(1.8); }
-      // THE ANGLE FIX (owner's review of the lively candidate:
-      // "musuh malah ketutupan karakter kita" — the enemies are
-      // covered by our own character). The cast77–79 probes
-      // measured screen boxes with the game's own camera model
-      // and proved the along-ray line cannot be fixed by any
-      // swing: at -0.48 the camera axis extended spears the
-      // south firer (overlap 2.6 pts) and south-mid (1.0); at
-      // -0.84 it spears the bookend instead and throws the
-      // primary behind the left panels; a flank-ray layout
-      // throws its far anchor to 10.8%. A lateral N-S line fans
-      // ~65 pts wide — wider than the 30-65 clean window.
-      // What works is placing each man against the -0.48 axis
-      // (tilt 28.8 deg S of E through Raka; screen centre ~
-      // 50 + 0.80 x the axis-model offset, the 0.80 being the
-      // probes' measured compression): every standing man sits
-      // >= 1.4 pts of screen clear of the hero's silhouette box
-      // (45.5..54.5) with air between neighbours. Measured
-      // boxes at the solved swing (cast79 probe):
-      //   near man (200.2, 189.9) — the kill, on the ray
-      //     (+4.2, +0.4 S); settles west toward Raka, alone
-      //     on the asphalt under the beam.
-      //   primary (203.3, 190.3) — Raka's standing target,
-      //     box 35.3..38.1; 0.8 m off the ray is inside the
-      //     0.9 pick tolerance, so the fire walks near man ->
-      //     primary, and the beam now ends on a man standing
-      //     clear at the frame's left third, not behind Raka.
-      //   south firer (205.6, 191.9) — box 39.4..41.6; cued
-      //     return fire across the lane.
-      //   south-mid (208.7, 193.9) — box 42.3..44.1, the last
-      //     man left of the hero (1.4 pts of air); third cued
-      //     return-firer.
-      //   east-south (206.7, 198.7) — box ~57.2..59.4, first
-      //     man right of the hero, deep against the container
-      //     faces, 3.2 m clear of the burning Kijang.
-      //   south bookend (201.5, 196.1) — box ~61.5..64.5,
-      //     the line's near end big in the foreground south
-      //     of the corpse patch, far outside the pick
-      //     tolerance so the fire walk is untouched.
-      // The six staged gunmen: [x, z, vest]. In the shoulder
-      // variant the last four re-fan along the wall (see the
-      // SHOULDER note above); the first two never move — the
-      // near man is the on-ray kill and the primary is Raka's
-      // standing target, both chained to the duel ray.
-      const GANG = DUEL
-        ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.5, 193.5, false], [208.5, 196.8, true], [209.7, 198.6, false], [208.0, 200.8, true]]
-        : WIDE
-        ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.5, 193.5, false], [208.5, 196.8, true], [211.0, 201.5, false], [213.5, 205.5, true]]
-        : SHOULDER
-        ? [[200.2, 189.9, false], [203.3, 190.3, true], [206.9, 194.6, false], [208.0, 197.2, true], [208.8, 199.8, false], [209.4, 202.2, true]]
-        : [[200.2, 189.9, false], [203.3, 190.3, true], [205.6, 191.9, false], [208.7, 193.9, true], [206.7, 198.7, false], [201.5, 196.1, true]];
-      for (const [gx, gz, vest] of GANG) api.addPed(gx, gz, { hostile: true, gun: true, shirt: 0x6c3483, vest });
-      // THE ALLY (duel variant only): Bima at Raka's right hand,
-      // rust mechanic's shirt and a slate cap — never gang
-      // purple, never Raka's teal. A crew-flag ped: he holds his
-      // spot, keeps his SMG up on T1 and trades cosmetic fire
-      // with the pair (see the crew branch in updatePeds).
-      if (DUEL) api.heroGunPed(api.addPed(193.8, 191.8, { gun: true, weapon: "smg", crew: true, aimAt: [209.7, 198.6], shirt: 0xb3541e, cap: 0x2e4a5a }));
-      // THE HERO GUN (owner's review of the duel frame: "senjatanya
-      // ga keliatan — mana yang senjata mana yang tangan" — the
-      // near-black SMG fused with Raka's dark sleeve into one
-      // block). Duel only: swap his game gun for the light-steel
-      // hero SMG, whose pale body separates from the dark jacket
-      // and whose dark magazine/stock/brake keep the parts
-      // nameable at poster size. Staging-only via the api lever;
-      // the other port variants keep the game gun untouched.
-      // Bima gets the same swap (the heroGunPed wrap above): in
-      // the verification crop his game gun read as one dark block
-      // fused with his raised arm, the owner's exact complaint.
-      if (DUEL) api.setHeroGun();
-      // Dockers pinned at the frame's edges and two unpinned
-      // reactors inside the panic radius. In the shoulder
-      // variant the east dockers step past the re-fanned line
-      // so they stay crowd at the edge, not a seventh gunman.
-      const docker = (x, z, speed, opts) => { const p = api.addPed(x, z, opts || {}); if (p) p.speed = speed; };
-      docker(189, 185.5, 0.3, { cap: 0xf5c518 });
-      docker(190.5, 186.5, 0.35, {});
-      if (WIDE || DUEL) { docker(219, 203.5, 0.3, { cap: 0xe07a3f }); docker(220.5, 204.5, 0.35, {}); }
-      else if (SHOULDER) { docker(216, 200.5, 0.3, { cap: 0xe07a3f }); docker(217.5, 201.5, 0.35, {}); }
-      else { docker(211.5, 198.5, 0.3, { cap: 0xe07a3f }); docker(213, 199.5, 0.35, {}); }
-      api.addPed(192, 183.5, {});
-      api.addPed(193, 196, {});
-      api.addPed(218, 195, {});
-      api.addPed(219.5, 191, {});
-      // The drama anchor and yard dressing. In the shoulder
-      // variant the Kijang waits at the fan's east end.
-      if (WIDE || DUEL) api.parkCar("Kijang Sprint", 215.5, 202, 0.55);
-      else if (SHOULDER) api.parkCar("Kijang Sprint", 212.5, 200.5, 0.55);
-      else api.parkCar("Kijang Sprint", 204, 197, 0.55);
-      api.parkCar("Kargo Box Truck", 233, 201, 0.5);
-      api.parkCar("Angkot Van", 194, 198, 0.8);
-      api.selectWeapon("smg");
-      api.setPackagesFound(4);
-      api.setWanted(3, true);
-      api.setRadio(2);
-      api.dialogue("Bima", "MECHANIC — CREW", "Blockade crews on the port road, Raka. The Long Table sits when this road is clear — drop them between the containers.");
-      break;
-    }
-    case "hills": {
-      // Bukit Kapur at dusk-night: the scale shot. Two stagings
-      // taught the geography: the lookout clearing faces a
-      // generic mid-rise wall 25 m away (the block east of the
-      // hills is not hills-zoned), and standing inside the goto
-      // radius completes the stage before the grab. The world's
-      // only guaranteed-open sightlines are its road corridors —
-      // so the shot stands on the z = -190 road at the hills'
-      // west end, looking EAST down the canyon: chalk rooftops
-      // on the left, the downtown tower cluster rising at the
-      // corridor's end 300 m away, the bay a teal band beyond
-      // the strand. Flat ground, composed depth — rooftops,
-      // towers, sea, sky, stacked in fog layers.
-      //   * Raka at (-218, -191.5), heading π/2 — 59 m from the
-      //     lookout point, so the stage stays armed and the card
-      //     honestly reads "Reach the Bukit Kapur lookout".
-      //   * The bookkeeper's coupe waits on the shoulder ahead.
-      //   * An SBPD cruiser rolls down the corridor toward the
-      //     camera (pinned by the capture tool at (-178, -186.5),
-      //     headlights first) — the wanted response in-frame.
-      // Clock 19.85 at staging — the capture lands ~20.1: navy
-      // senja sky, lit windows, headlight cones at full strength.
-      api.setClock(19.85);
-      api.setStats({ money: 11980, respect: 1340, health: 88, armor: 40 });
-      api.startJobAt(4, 0);                    // HILLSIDE LEDGER, reach-the-lookout stage
-      api.placeOnFoot(-218, -191.5, Math.PI / 2); // z = -190 road, west end, facing east over the town
-      api.setCamOffset(-0.28);                 // the canyon runs diagonally off Raka's shoulder, not split by him
-      api.parkCar("Senja Coupe", -196, -183.5, Math.PI / 2 + 0.12); // the bookkeeper's coupe, shoulder ahead
-      api.parkCar("Taksi Senja", -227, -199.5, 0.05);
-      api.parkCar("Kijang Sprint", -158, -198.5, -Math.PI / 2);
-      api.parkCar("Senja Scooter", -213.5, -185.5, 1.2);
-      api.setPackagesFound(8);
-      api.addPed(-210, -183, {});
-      api.addPed(-205, -199, { hat: 0xe9c46a });
-      api.addPed(-188, -182.5, {});
-      api.selectWeapon("pistol");
-      api.setWanted(2, true);
-      api.spawnChasePack(1, 12);
-      api.dialogue("Laras", "LOOKOUT — CREW", "Lookout road, Raka — the whole bay below and the bookkeeper's coupe waiting ahead. Cruiser just turned onto the hill road. Stay sharp.");
-      break;
-    }
+    const tail = G.cars.filter((c) => c.kind === "police");
+    [[282, 84, "MARLIN-30"], [291, 108, "TIDE-67"]].forEach(([x, z, name], i) => {
+      const c = tail[i];
+      if (!c) return;
+      c.active = true; c.mesh.visible = true;
+      c.dispatchName = name; c.tactic = "PURSUIT";
+      c.pos.set(x, 0, z); c.mesh.position.copy(c.pos);
+      c.heading = Math.PI; c.mesh.rotation.y = Math.PI; c.speed = 27;
+    });
+    G.setCamYaw(Math.PI + Math.PI + S.camOffset);
+    G.pinDispatch(3);
+    hud.dialogue("Sinta", "DRIVER — CREW", "Every cruiser in the bay and Air One want that orange Pelo. Forty seconds on the Strand, then you vanish.", "#d8493b");
+  } else if (stage === "portduel") {
+    // The duel: job seven, stage two, Raka turned 45° onto the pair
+    // by the red container, Bima at his right, the port road held.
+    seedCareer({
+      respect: 2210, missionIndex: 6, stageIndex: 1, stageLeft: 6,
+      ammo: { pistol: 96, smg: 235, shotgun: 32 },
+      health: 98, armour: 65, clock: 19.97, wanted: 3,
+      act: { best: { strand: 48.6 }, taken: [0, 1, 2, 3] },
+    });
+    S.camOffset = 0.20;
+    S.camShoulder = 1.5;
+    S.camBack = 1.8;
+    G.setPlayerWeapon("smg");
+    player.pos.set(195.9, 0, 189.5);
+    player.heading = Math.PI / 4;
+    player.mesh.rotation.y = Math.PI / 4;
+    G.setCamYaw(Math.PI / 4 + Math.PI + 0.20);
+    G.spawnPed("crew", 193.8, 191.8, {
+      crew: true, heroGun: true, name: "BIMA", heading: 0.8,
+      look: { skin: 0x9c6b43, shirt: 0x8a5a2e, pants: 0x2a2d33, cap: 0x3a3f45 },
+    });
+    G.spawnCar("kijang", 0xc23b2a, 215.5, 202, 0.4, "parked");
+    G.spawnCar("coupe", 0x2471a3, 233, 201, -0.3, "parked");
+    G.spawnCar("bemo", 0x2e8b6e, 194, 198, 1.2, "parked");
+    // The cordon at dispatch distance: five units holding 50–60 m.
+    const units = [
+      ["MARLIN-47", "RAMMING", 240, 225], ["PIER-37", "PURSUIT", 238, 218],
+      ["PIER-75", "RAMMING", 150, 215], ["MARLIN-14", "FLANKING", 146, 208],
+      ["MARLIN-70", "RAMMING", 238, 228],
+    ];
+    const pool = G.cars.filter((c) => c.kind === "police");
+    units.forEach(([name, tactic, x, z], i) => {
+      const c = pool[i];
+      if (!c) return;
+      c.active = true; c.mesh.visible = true;
+      c.dispatchName = name; c.tactic = tactic;
+      c.pos.set(x, 0, z); c.mesh.position.copy(c.pos);
+      c.heading = Math.atan2(player.pos.x - x, player.pos.z - z);
+      c.mesh.rotation.y = c.heading;
+      c.speed = 0;
+    });
+    G.pinDispatch(0);
+    hud.dialogue("Bima", "MECHANIC — CREW", "Blockade crews on the port road, Raka. The Long Table sits when this road is clear — drop them between the containers.", "#2e7fd9");
+  } else if (stage === "market") {
+    player.pos.set(-206, 0, 110);
+    player.heading = 0.6;
+    player.mesh.rotation.y = 0.6;
+    G.setCamYaw(0.6 + Math.PI);
+  } else if (stage === "port" || stage === "portshoulder" || stage === "portwide") {
+    player.pos.set(196, 0, 172);
+    player.heading = 0.9;
+    player.mesh.rotation.y = 0.9;
+    G.setCamYaw(0.9 + Math.PI + 0.2);
+    if (stage !== "port") S.camShoulder = 1.5;
+    if (stage === "portwide") S.camBack = 1.8;
+  } else if (stage === "hills") {
+    player.pos.set(-228, 0, -228);
+    player.heading = -0.7;
+    player.mesh.rotation.y = -0.7;
+    G.setCamYaw(-0.7 + Math.PI);
   }
+
+  installDebug(G);
+  window.__senjaReady = true;
+}
+
+function installDebug(G) {
+  const S = G.state;
+  const api = {
+    get state() { return G.state; },
+    get player() { return G.player; },
+    get peds() { return G.peds; },
+    get cars() { return G.cars; },
+    get camYaw() { return G.getCamYaw(); },
+    get fxFrozen() { return G.fx.frozen; },
+    setFxFreeze(v) { G.fx.setFrozen(!!v); },
+    get flashI() { return G.fx.flashI; },
+    get flashPos() { return G.fx.flashPos; },
+    get tracerEnd() { return G.fx.lastStreak ? G.fx.lastStreak.to : null; },
+    setCamShoulder(v) { G.state.camShoulder = v; },
+    setCamBack(v) { G.state.camBack = v; },
+    setRaceBest(raceId, seconds) { G.state.act.best[raceId] = seconds; },
+    setHeroGun() { G.setPlayerWeapon("smg"); },
+    heroGunPed() { return G.player; },
+  };
+  window.__senjaDebug = api;
+  return api;
 }
